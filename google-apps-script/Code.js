@@ -31,12 +31,20 @@ function doPost(e) {
       return responseJson({ verified: false, error: "Missing mandatory request_id" }, 400);
     }
 
-    // 2. Move API_SECRET authentication to X-SPARK-SECRET HTTP header
+    // 2. Move API_SECRET authentication to X-SPARK-SECRET HTTP header (with robust parameter/body fallbacks)
     var headers = e.headers || {};
-    var sparkSecret = headers['X-SPARK-SECRET'] || headers['x-spark-secret'] || e.parameter['X-SPARK-SECRET'] || e.parameter['x-spark-secret'];
+    var sparkSecret = headers['X-SPARK-SECRET'] || 
+                      headers['x-spark-secret'] || 
+                      e.parameter['X-SPARK-SECRET'] || 
+                      e.parameter['x-spark-secret'] ||
+                      postData['X-SPARK-SECRET'] || 
+                      postData['x-spark-secret'] ||
+                      postData.spark_secret || 
+                      postData.api_secret;
+                      
     var expectedSecret = PropertiesService.getScriptProperties().getProperty('SPARK_SECRET');
     if (!expectedSecret || sparkSecret !== expectedSecret) {
-      Logger.log(logPrefix + "Auth Failed: X-SPARK-SECRET header mismatched or missing.");
+      Logger.log(logPrefix + "Auth Failed: X-SPARK-SECRET mismatched or missing.");
       return responseJson({ verified: false, error: "Unauthorized access" }, 401);
     }
 
