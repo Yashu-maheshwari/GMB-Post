@@ -707,6 +707,86 @@ function runGbpDiscovery() {
   }
 }
 
+/**
+ * Run one single controlled live test for AME_BAZAAR.
+ * Bypasses TEST_MODE=true for this single execution.
+ */
+function runOneLiveTest() {
+  Logger.log("=== STARTING CONTROLLED LIVE GMB TEST FOR AME_BAZAAR ===");
+  
+  var testPayload = {
+    request_id: "live_test_ame_bazaar_" + Date.now(),
+    business: "AME_BAZAAR",
+    summary: "Naye traditional wear collection humare Mubarakpur Road Kirari store par ab available hai! 🌟 Family shopping ke liye naye fabrics aur custom tailoring designs. Traditional ethnic clothing aur family wear ke liye humare store AME Bazaar visit karein.",
+    media_url: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+    cta_url: "https://g.page/r/amebazaar"
+  };
+  
+  var props = PropertiesService.getScriptProperties();
+  var prevTestMode = props.getProperty('TEST_MODE');
+  props.setProperty('TEST_MODE', 'false');
+  
+  try {
+    Logger.log("Publishing to GBP...");
+    var postResult = publishToGbp(testPayload, testPayload.media_url, "AME_BAZAAR");
+    Logger.log("Publish result: " + JSON.stringify(postResult));
+    
+    if (postResult.success) {
+      Logger.log("Verifying post...");
+      var verification = verifyGbpPost(postResult.postName, testPayload, testPayload.media_url, "AME_BAZAAR");
+      Logger.log("Verification status: " + JSON.stringify(verification));
+    }
+  } catch (err) {
+    Logger.log("[ERROR] Live test exception: " + err.message);
+  } finally {
+    if (prevTestMode !== null) {
+      props.setProperty('TEST_MODE', prevTestMode);
+    } else {
+      props.deleteProperty('TEST_MODE');
+    }
+    Logger.log("TEST_MODE restored to original state.");
+  }
+}
+
+/**
+ * Diagnostic function to perform a read-only configuration audit of Script Properties.
+ */
+function runConfigCheck() {
+  Logger.log("=== GMB POST AUTOMATION CONFIGURATION AUDIT ===");
+  var props = PropertiesService.getScriptProperties().getProperties();
+  
+  var requiredKeys = [
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'GOOGLE_GBP_REFRESH_TOKEN',
+    'GOOGLE_GBP_ACCOUNT_ID_AME_BAZAAR',
+    'GOOGLE_GBP_LOCATION_ID_AME_BAZAAR'
+  ];
+  
+  Logger.log("\n1. Key Verification (Present/Missing):");
+  requiredKeys.forEach(function(key) {
+    var status = (props[key] && props[key].trim() !== '') ? "PRESENT" : "MISSING";
+    Logger.log("- " + key + ": " + status);
+  });
+  
+  Logger.log("\n2. AME Bazaar Target ID Parity:");
+  var targetAccount = "107856377351216824945";
+  var targetLocation = "16134813121256220692";
+  
+  var currentAccount = props['GOOGLE_GBP_ACCOUNT_ID_AME_BAZAAR'];
+  var currentLocation = props['GOOGLE_GBP_LOCATION_ID_AME_BAZAAR'];
+  
+  Logger.log("- Target Account:  " + targetAccount);
+  Logger.log("- Current Account: " + (currentAccount || "NOT SET"));
+  Logger.log("- Account Match:   " + (currentAccount === targetAccount ? "VERIFIED" : "MISMATCH"));
+  
+  Logger.log("- Target Location: " + targetLocation);
+  Logger.log("- Current Location:" + (currentLocation || "NOT SET"));
+  Logger.log("- Location Match:  " + (currentLocation === targetLocation ? "VERIFIED" : "MISMATCH"));
+  
+  Logger.log("\n=============================================");
+}
+
 
 
 
