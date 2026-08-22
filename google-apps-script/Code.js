@@ -597,10 +597,32 @@ function runGbpDiscovery() {
   }
   
   var targets = {
-    "AME_BAZAAR": { name: "AME Bazaar - Family Garment Store", accountProp: "GOOGLE_GBP_ACCOUNT_ID_AME_BAZAAR", locationProp: "GOOGLE_GBP_LOCATION_ID_AME_BAZAAR" },
-    "MAHESHWARI_COUNSEL": { name: "Maheshwari Counsel | Advocates & Legal Consultants", accountProp: "GOOGLE_GBP_ACCOUNT_ID_MAHESHWARI_COUNSEL", locationProp: "GOOGLE_GBP_LOCATION_ID_MAHESHWARI_COUNSEL" },
-    "ADVAITH_EDUCATIONAL_CENTER": { name: "Advaith Educational Centre", accountProp: "GOOGLE_GBP_ACCOUNT_ID_ADVAITH_EDUCATIONAL_CENTER", locationProp: "GOOGLE_GBP_LOCATION_ID_ADVAITH_EDUCATIONAL_CENTER" },
-    "SIS": { name: "SARASWATI INTERNATIONAL SCHOOL", accountProp: "GOOGLE_GBP_ACCOUNT_ID_SIS", locationProp: "GOOGLE_GBP_LOCATION_ID_SIS" }
+    "AME_BAZAAR": { 
+      name: "AME Bazaar - Family Garment Store", 
+      verifiedLocationId: "16134813121256220692",
+      verifiedAccountId: "107856377351216824945",
+      keywords: ["ame bazaar", "family garment store"],
+      accountProp: "GOOGLE_GBP_ACCOUNT_ID_AME_BAZAAR", 
+      locationProp: "GOOGLE_GBP_LOCATION_ID_AME_BAZAAR" 
+    },
+    "MAHESHWARI_COUNSEL": { 
+      name: "Maheshwari Counsel | Advocates & Legal Consultants", 
+      keywords: ["maheshwari counsel", "advocates & legal consultants", "maheshwari"],
+      accountProp: "GOOGLE_GBP_ACCOUNT_ID_MAHESHWARI_COUNSEL", 
+      locationProp: "GOOGLE_GBP_LOCATION_ID_MAHESHWARI_COUNSEL" 
+    },
+    "ADVAITH_EDUCATIONAL_CENTER": { 
+      name: "Advaith Educational Centre", 
+      keywords: ["advaith educational centre", "advaith educational center", "advaith"],
+      accountProp: "GOOGLE_GBP_ACCOUNT_ID_ADVAITH_EDUCATIONAL_CENTER", 
+      locationProp: "GOOGLE_GBP_LOCATION_ID_ADVAITH_EDUCATIONAL_CENTER" 
+    },
+    "SIS": { 
+      name: "SARASWATI INTERNATIONAL SCHOOL", 
+      keywords: ["saraswati international school", "saraswati international"],
+      accountProp: "GOOGLE_GBP_ACCOUNT_ID_SIS", 
+      locationProp: "GOOGLE_GBP_LOCATION_ID_SIS" 
+    }
   };
   
   var matches = {};
@@ -655,8 +677,27 @@ function runGbpDiscovery() {
           
           // Match logic
           for (var bKey in targets) {
-            var targetName = targets[bKey].name.toLowerCase().trim();
-            if (cleanTitle === targetName || cleanTitle.indexOf(targetName) !== -1 || targetName.indexOf(cleanTitle) !== -1) {
+            var target = targets[bKey];
+            var isMatch = false;
+            
+            // Primary location ID match priority (e.g. for AME Bazaar)
+            if (target.verifiedLocationId && locationId === target.verifiedLocationId) {
+              isMatch = true;
+            } else if (!target.verifiedLocationId) {
+              var targetName = target.name.toLowerCase().trim();
+              if (cleanTitle === targetName || cleanTitle.indexOf(targetName) !== -1 || targetName.indexOf(cleanTitle) !== -1) {
+                isMatch = true;
+              } else if (target.keywords) {
+                for (var k = 0; k < target.keywords.length; k++) {
+                  if (cleanTitle.indexOf(target.keywords[k]) !== -1) {
+                    isMatch = true;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            if (isMatch) {
               matches[bKey].push({
                 accountId: accountId,
                 locationId: locationId,
