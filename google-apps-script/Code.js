@@ -707,4 +707,35 @@ function runGbpDiscovery() {
   }
 }
 
+/**
+ * Programmatically imports the GMB credentials exported by the website script,
+ * saves them to project properties, and deletes the temporary migration sheet.
+ */
+function importCredentialsFromSheet() {
+  const ssId = '1CHwQ-NFSAQgPpxzvgC5mDxqjzd3iiewujvZJ08AbmJU';
+  const ss = SpreadsheetApp.openById(ssId);
+  const sheet = ss.getSheetByName('__gmb_bootstrap__');
+  
+  if (!sheet) {
+    Logger.log('[ERROR] Migration sheet __gmb_bootstrap__ not found. Make sure you ran exportCredentialsToSheet in the website script first.');
+    return;
+  }
+  
+  const values = sheet.getDataRange().getValues();
+  const props = PropertiesService.getScriptProperties();
+  
+  values.forEach(row => {
+    const key = row[0];
+    const val = row[1];
+    if (key && val) {
+      props.setProperty(key, val);
+      Logger.log('[SUCCESS] Saved property: ' + key);
+    }
+  });
+  
+  // Clean up migration sheet immediately to protect secrets
+  ss.deleteSheet(sheet);
+  Logger.log('[CLEANUP] Deleted __gmb_bootstrap__ sheet from the spreadsheet.');
+}
+
 
