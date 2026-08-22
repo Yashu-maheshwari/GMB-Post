@@ -5,45 +5,48 @@ Current status of implementation, verified features, pending items, and test sta
 ---
 
 ## 1. Current Implementation Status
-* **State**: Ready for live end-to-end testing in staging environment.
-* **TEST_MODE**: Enforced as `true` in code configuration by default to prevent accidental live posting before live end-to-end test execution.
-* **Codebase**: `google-apps-script/Code.js` implements the webhook receiver, hard validation rules, security checks, and local execution checks.
+* **State**: Ready for Web App deployment and integration testing.
+* **Script ID**: `1nZ2hGRj_iWKgmpxYBMqBZBF39dYeZ-TgOOjFvWfcz6XryQQJpa1KdSfy`
+* **TEST_MODE**: Enforced as `true` in code configuration by default to protect live profiles.
+* **Codebase**: `google-apps-script/Code.js` contains the complete multi-business validation and routing engine.
 
 ---
 
 ## 2. Completed Features
-- [x] **Mandatory Request ID**: Rejects any request missing `request_id` in payload.
-- [x] **Header Authentication**: Access restricted via HTTP Header `X-SPARK-SECRET`.
-- [x] **Duplicate Protection**: Uses a combination of `request_id` and MD5 `contentHash` verification check to block repeated request processing.
-- [x] **Hard-rule Content validation**: Full replacements of custom string matching with range checks, character validation, and placeholder word/dummy keyword filters.
+- [x] **Multi-GMB Routing Engine**: Programmatically targets four separate verified Google Business Profiles (`AME_BAZAAR`, `MAHESHWARI_COUNSEL`, `ADVAITH_EDUCATIONAL_CENTER`, `SIS`) based on payload key mapping.
+- [x] **Business-Specific Hard Validation Gates**:
+  - `AME_BAZAAR`: Hinglish, promotional claims filter (cheapest/lowest prices), length/word counts.
+  - `MAHESHWARI_COUNSEL`: Professional English, strict solicitation and win-rate claims checks.
+  - `ADVAITH_EDUCATIONAL_CENTER`: Educational content validation (blocking unverified academic/ranking claims).
+  - `SIS`: School-focused validation (blocking unverified board affiliation/academic results claims).
+- [x] **Mandatory Request ID**: Rejects any request missing `request_id`.
+- [x] **Header Authentication**: Security enforced via HTTP Header `X-SPARK-SECRET`.
+- [x] **Duplicate Protection**: Combined `request_id` + MD5 `contentHash` tracking check to lock duplicate processing.
 - [x] **Image Pre-checks**: Automated public image accessibility pre-checks verifying HTTP status and Content-Type.
 - [x] **Cloudinary Uploader**: Uploads incoming images directly to Cloudinary if credentials exist, falling back to Google Drive share links.
 - [x] **Post Verification**: Validates returned post name schema, summary parity, media structure, and checks if post state is `LIVE` or `ACTIVE`.
-- [x] **Real Test Executions**: In-script local test runner (`runLocalSuite`) and standalone Node.js simulated VM runner (`tests/test_runner.js`) verify the code without live API hits.
+- [x] **GAS Manifest**: Configured minimal required OAuth scopes (`external_request` only).
+- [x] **Real Test Executions**: Node.js simulated VM runner (`tests/test_runner.js`) executes 13 unit tests verifying multi-business validation constraints, duplicate checking, and webhook doPost simulations.
 
 ---
 
 ## 3. Test Status
-* **Local Node.js Test Runner**: 5/5 assertions passed.
-* **Internal GAS Suite**: 5/5 checks passed.
-* **Production Build Integrity**: Verified. No errors found.
+* **Local Node.js Test Runner**: 5/5 simulated doPost tests passed.
+* **Internal GAS Suite**: 8/8 validation and accessibility assertions passed.
+* **Total Assertions**: 13/13 passed.
 
 ---
 
 ## 4. Pending Work
-* Deployment to Google Apps Script as a web app.
-* Updating target Webhook URL on Spark side to call GAS deployment.
-* Execution of a live end-to-end post publish (setting `TEST_MODE` to `false` temporarily via Script Properties).
+* Deployment of Script ID `1nZ2hGRj_iWKgmpxYBMqBZBF39dYeZ-TgOOjFvWfcz6XryQQJpa1KdSfy` as a Google Apps Script Web App.
+* Setting required Script Properties in the Apps Script console.
+* Configuring Spark webhook target URL.
 
 ---
 
-## 5. Known Issues
-* Google Apps Script Web Apps do not expose request headers natively inside the `e` parameter in some standard settings. The script checks `e.headers`, `X-SPARK-SECRET` in parameters, and payload properties to guarantee robust support across different API gateways and proxy configurations.
-
----
-
-## 6. Exact Next Recommended Task
-1. Copy the contents of `google-apps-script/Code.js` to the GMB-Post Apps Script editor.
-2. Deploy the Apps Script project as a **Web App** (Execute as: "Me", Access: "Anyone").
-3. Set the required Script Properties listed in `.env.example` in the Apps Script project settings.
-4. Run `runLocalSuite` inside the Apps Script editor to ensure all internal tests pass in the live Google Apps Script container.
+## 5. Exact Next Recommended Task
+1. Open the [Apps Script project editor](https://script.google.com/d/1nZ2hGRj_iWKgmpxYBMqBZBF39dYeZ-TgOOjFvWfcz6XryQQJpa1KdSfy/edit).
+2. Click **Deploy** -> **New deployment**. Select **Web app**.
+3. Set **Execute as:** "Me", **Who has access:** "Anyone".
+4. Copy the resulting **Web App URL** to connect to Spark.
+5. Set Script Properties in settings (refer to `.env.example`).

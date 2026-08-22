@@ -23,7 +23,24 @@ The core entry point is `google-apps-script/Code.js` which contains the `doPost`
 
 ---
 
-## 3. How to Continue Development
+## 3. Connected Apps Script Project
+* **Script ID**: `1nZ2hGRj_iWKgmpxYBMqBZBF39dYeZ-TgOOjFvWfcz6XryQQJpa1KdSfy`
+* **Local config**: Managed via `.clasp.json` (pointing to `/google-apps-script` as the root directory).
+
+---
+
+## 4. Multi-Business Routing Logic
+The script dynamically routes requests to the correct Google Business Profile using the `business` or `business_key` payload parameter:
+1. `AME_BAZAAR`
+2. `MAHESHWARI_COUNSEL`
+3. `ADVAITH_EDUCATIONAL_CENTER`
+4. `SIS`
+
+Script properties must be configured for each business key (e.g. `GOOGLE_GBP_ACCOUNT_ID_SIS` and `GOOGLE_GBP_LOCATION_ID_SIS`), falling back to default script properties if not present.
+
+---
+
+## 5. How to Continue Development
 
 ### Pre-requisites
 1. Node.js (v18+)
@@ -41,11 +58,3 @@ If you need to update the Google Apps Script project:
    ```bash
    clasp push
    ```
-
-### Execution Flow for Future Updates
-Before beginning the next development task:
-1. Read `README.md` to understand system topology.
-2. Read `PROJECT_STATUS.md` to identify pending items.
-3. Check test suite status by running `node tests/test_runner.js`.
-4. Implement requested modifications inside `google-apps-script/Code.js`.
-5. Write corresponding unit tests in `tests/test_runner.js` and verify execution.

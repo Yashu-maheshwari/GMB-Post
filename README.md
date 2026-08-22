@@ -17,12 +17,12 @@ sequenceDiagram
 
     Spark->>GAS: HTTP POST (Payload + X-SPARK-SECRET)
     Note over GAS: Auth Validation
-    Note over GAS: Hard-rule Content check
+    Note over GAS: Hard-rule Content check (Business-Specific)
     Note over GAS: Duplicate check
     GAS->>Cloudinary: Upload Image (if media_url exists & credentials configured)
     Cloudinary-->>GAS: Return secure_url
     Note over GAS: Accessibility Check
-    GAS->>GBP: POST localPosts API
+    GAS->>GBP: POST localPosts API (Business Routing)
     GBP-->>GAS: Return name, state, summary
     Note over GAS: Verification checks (returned post info)
     GAS-->>Spark: JSON Response {verified: true, post_id: "..."}
@@ -35,6 +35,7 @@ sequenceDiagram
 ### Spark Role
 * Initiates the publishing process by making a POST request containing:
   * `request_id`: Unique identifier (UUID or hash) to enforce duplicate protection.
+  * `business`: Key identifying target business profile (`AME_BAZAAR`, `MAHESHWARI_COUNSEL`, `ADVAITH_EDUCATIONAL_CENTER`, or `SIS`).
   * `summary`: Hinglish or English post text.
   * `media_url` (optional): Raw image link.
   * `cta_url` (optional): Learn more target.
@@ -48,13 +49,25 @@ sequenceDiagram
 ### Google Apps Script Web App Role
 * Exposes a public webhook endpoint (`doPost`).
 * Enforces mandatory properties validation and auth check.
+* Routes posts to the corresponding business profile.
 * Runs image uploads and accessibility pre-checks.
 * Talks to Google Business Profile API to publish the post.
 * Runs a strict post-publication verification and logs status.
 
 ---
 
-## 3. Data Flow & Security Protocols
+## 3. Business-Specific Validation Gates
+
+To ensure continuous local visibility and protect the reputation of each business, the script runs custom validation checks:
+
+* **AME_BAZAAR**: Matches Hinglish style. Blocks unverified promotional claims like "cheapest" or "lowest price".
+* **MAHESHWARI_COUNSEL**: Professional English. Restricts any legal solicitation terminology (e.g. "best lawyer", "guaranteed win").
+* **ADVAITH_EDUCATIONAL_CENTER**: Restricts academic inventions (e.g. rank, percentile, 100% selection, board affiliation).
+* **SIS**: Restricts school facility, admission, or board affiliation claims.
+
+---
+
+## 4. Data Flow & Security Protocols
 
 ### Image Hosting Flow
 1. If `media_url` is provided, GAS checks for `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` script properties.
@@ -63,7 +76,7 @@ sequenceDiagram
 
 ### GBP API Flow
 1. GBP OAuth tokens are refreshed using `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_GBP_REFRESH_TOKEN` to retrieve a temporary `Bearer` access token.
-2. Payload containing `summary`, `callToAction`, and optional `media` is sent to `https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/localPosts`.
+2. Payload containing `summary`, `callToAction`, and optional `media` is sent to `https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/localPosts` based on mapped business account/location IDs.
 
 ### Verification Flow
 Once the post name is returned, GAS immediately performs a GET call to verify:
@@ -80,12 +93,12 @@ Once the post name is returned, GAS immediately performs a GET call to verify:
 
 ---
 
-## 4. Deployment Requirements
+## 5. Deployment Requirements
 
 1. **Host as Web App**:
    * Deploy the script inside the Google Apps Script Editor.
    * Configuration: Execute as "Me", Access: "Anyone".
 2. **Script Properties**:
-   * Set all environment variables defined in `.env.example` under project Settings -> Script Properties.
+   * Set all environment variables defined in `.env.example` under project Settings -> Script Properties. Set business-specific keys using `GOOGLE_GBP_ACCOUNT_ID_[BUSINESS_KEY]` syntax.
 3. **Trigger Node Testing**:
    * Run local tests by installing devDependencies and running `npm test`.

@@ -4,6 +4,14 @@ All notable changes to the GMB Post Automation system will be documented in this
 
 ---
 
+## [1.1.0] - 2026-08-22
+
+### Added
+- Integrated multi-GMB routing engine to target four distinct business profiles (`AME_BAZAAR`, `MAHESHWARI_COUNSEL`, `ADVAITH_EDUCATIONAL_CENTER`, `SIS`) using payload key mapping.
+- Implemented business-specific validation checks (Hinglish/promotional filters for AME, solicitation filters for Counsel, academic claims filters for Advaith, and board results filters for SIS).
+- Synchronized code changes to the correct dedicated GMB script container `1nZ2hGRj_iWKgmpxYBMqBZBF39dYeZ-TgOOjFvWfcz6XryQQJpa1KdSfy`.
+- Expanded the local test runner coverage to 13 assertions covering the validation blocks for all four businesses.
+
 ## [1.0.0] - 2026-08-22
 
 ### Added

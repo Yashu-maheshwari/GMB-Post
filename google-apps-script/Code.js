@@ -17,7 +17,9 @@ function doPost(e) {
     }
 
     var postData = JSON.parse(e.postData.contents);
-    Logger.log(logPrefix + "Received request: " + JSON.stringify({
+    var businessKey = postData.business || postData.business_key || "AME_BAZAAR";
+    
+    Logger.log(logPrefix + "Received request for business: " + businessKey + " | " + JSON.stringify({
       request_id: postData.request_id,
       summary_len: postData.summary ? postData.summary.length : 0,
       has_media: !!postData.media_url
@@ -39,9 +41,9 @@ function doPost(e) {
     }
 
     // 8. Replace brittle AME banned-word check with proper hard-rule validation system
-    var validationResult = validateContent(postData.summary);
+    var validationResult = validateContent(postData.summary, businessKey);
     if (!validationResult.valid) {
-      Logger.log(logPrefix + "Validation Failed: " + validationResult.errors.join(", "));
+      Logger.log(logPrefix + "Validation Failed for " + businessKey + ": " + validationResult.errors.join(", "));
       return responseJson({ verified: false, error: "Validation failed: " + validationResult.errors.join(", ") }, 400);
     }
 
@@ -72,14 +74,14 @@ function doPost(e) {
     }
 
     // Publish to GBP
-    var postResult = publishToGbp(postData, imageUrl);
+    var postResult = publishToGbp(postData, imageUrl, businessKey);
     if (!postResult.success) {
       Logger.log(logPrefix + "GBP Publish Failed: " + postResult.error);
       return responseJson({ verified: false, error: "GBP API Error: " + postResult.error }, 500);
     }
 
     // 3. Strengthen post verification (returned name, location, summary matching, media exists, post state)
-    var verification = verifyGbpPost(postResult.postName, postData, imageUrl);
+    var verification = verifyGbpPost(postResult.postName, postData, imageUrl, businessKey);
     if (!verification.verified) {
       // 6. Do not claim "verified=true" unless all verification checks pass
       Logger.log(logPrefix + "GBP Post Verification Failed: " + verification.error);
@@ -130,7 +132,7 @@ function computeHash(str) {
 /**
  * Hard-rule validation system
  */
-function validateContent(summary) {
+function validateContent(summary, businessKey) {
   var errors = [];
   if (!summary || summary.trim().length === 0) {
     errors.push("Summary is empty");
@@ -165,6 +167,58 @@ function validateContent(summary) {
     }
   }
 
+  // Business-specific hard validation gates
+  if (businessKey === "AME_BAZAAR") {
+    var forbiddenAme = ["\\bcheapest\\b", "\\blowest price\\b", "\\bguaranteed cheapest\\b"];
+    for (var j = 0; j < forbiddenAme.length; j++) {
+      if (new RegExp(forbiddenAme[j], "i").test(summaryText)) {
+        errors.push("Contains unverified promotional claim: " + forbiddenAme[j]);
+      }
+    }
+  } else if (businessKey === "MAHESHWARI_COUNSEL") {
+    var forbiddenCounsel = [
+      "\\bbest lawyer\\b",
+      "\\btop lawyer\\b",
+      "\\bwin your case\\b",
+      "\\bguaranteed outcome\\b",
+      "\\bguaranteed win\\b",
+      "\\bsolicit\\b"
+    ];
+    for (var k = 0; k < forbiddenCounsel.length; k++) {
+      if (new RegExp(forbiddenCounsel[k], "i").test(summaryText)) {
+        errors.push("Contains prohibited legal solicitation claim: " + forbiddenCounsel[k]);
+      }
+    }
+  } else if (businessKey === "ADVAITH_EDUCATIONAL_CENTER") {
+    var forbiddenAdvaith = [
+      "\\bpercentile\\b",
+      "\\brank 1\\b",
+      "\\b100% selection\\b",
+      "\\bboard affiliation\\b",
+      "\\baffiliated to\\b"
+    ];
+    for (var l = 0; l < forbiddenAdvaith.length; l++) {
+      if (new RegExp(forbiddenAdvaith[l], "i").test(summaryText)) {
+        errors.push("Contains unverified academic claim: " + forbiddenAdvaith[l]);
+      }
+    }
+  } else if (businessKey === "SIS") {
+    var forbiddenSis = [
+      "\\baffiliated to cbse\\b",
+      "\\bcbse affiliation\\b",
+      "\\bno.1 school\\b",
+      "\\bbest school\\b",
+      "\\b100% board results\\b"
+    ];
+    for (var m = 0; m < forbiddenSis.length; m++) {
+      if (new RegExp(forbiddenSis[m], "i").test(summaryText)) {
+        errors.push("Contains unverified school claim: " + forbiddenSis[m]);
+      }
+    }
+  } else {
+    errors.push("Unknown business key: " + businessKey);
+  }
+
   return {
     valid: errors.length === 0,
     errors: errors
@@ -175,14 +229,12 @@ function validateContent(summary) {
  * Checks if this requestId and contentHash has been processed
  */
 function isDuplicate(requestId, contentHash) {
-  // Use CacheService / Script Properties as duplicate storage
   var props = PropertiesService.getScriptProperties();
   var key = "dup_" + requestId;
   var existingHash = props.getProperty(key);
   if (existingHash) {
     return true;
   }
-  // Check if hash itself has been processed recently (hash dedup)
   var hashKey = "hash_" + contentHash;
   var existingRequest = props.getProperty(hashKey);
   if (existingRequest) {
@@ -271,19 +323,23 @@ function uploadToCloudinaryIfAvailable(imageUrl) {
 /**
  * Publishes local post to Google Business Profile API
  */
-function publishToGbp(postData, imageUrl) {
+function publishToGbp(postData, imageUrl, businessKey) {
   var props = PropertiesService.getScriptProperties();
   var isTestModeProp = props.getProperty('TEST_MODE');
   if (isTestModeProp !== null) {
     TEST_MODE = isTestModeProp.toLowerCase() === 'true';
   }
 
+  // Load business-specific account/location IDs
+  var accountId = props.getProperty('GOOGLE_GBP_ACCOUNT_ID_' + businessKey) || props.getProperty('GOOGLE_GBP_ACCOUNT_ID');
+  var locationId = props.getProperty('GOOGLE_GBP_LOCATION_ID_' + businessKey) || props.getProperty('GOOGLE_GBP_LOCATION_ID');
+
   if (TEST_MODE) {
-    Logger.log("Running in TEST_MODE. Simulating GBP publishing.");
+    Logger.log("Running in TEST_MODE for " + businessKey + ". Simulating GBP publishing.");
     var mockPostId = "local_post_" + Date.now();
-    var accountId = props.getProperty('GOOGLE_GBP_ACCOUNT_ID') || "mock_account_id";
-    var locationId = props.getProperty('GOOGLE_GBP_LOCATION_ID') || "mock_location_id";
-    var mockPostName = "accounts/" + accountId + "/locations/" + locationId + "/localPosts/" + mockPostId;
+    var finalAccountId = accountId || "mock_account_id_" + businessKey;
+    var finalLocationId = locationId || "mock_location_id_" + businessKey;
+    var mockPostName = "accounts/" + finalAccountId + "/locations/" + finalLocationId + "/localPosts/" + mockPostId;
     return {
       success: true,
       postId: mockPostId,
@@ -292,10 +348,8 @@ function publishToGbp(postData, imageUrl) {
     };
   }
 
-  var accountId = props.getProperty('GOOGLE_GBP_ACCOUNT_ID');
-  var locationId = props.getProperty('GOOGLE_GBP_LOCATION_ID');
   if (!accountId || !locationId) {
-    return { success: false, error: "Missing GBP account_id or location_id configuration" };
+    return { success: false, error: "Missing GBP account_id or location_id configuration for " + businessKey };
   }
 
   var accessToken = refreshGbpAccessToken();
@@ -350,7 +404,7 @@ function publishToGbp(postData, imageUrl) {
 /**
  * Strengthened Post Verification
  */
-function verifyGbpPost(postName, postData, imageUrl) {
+function verifyGbpPost(postName, postData, imageUrl, businessKey) {
   var props = PropertiesService.getScriptProperties();
   var isTestModeProp = props.getProperty('TEST_MODE');
   if (isTestModeProp !== null) {
@@ -362,13 +416,13 @@ function verifyGbpPost(postName, postData, imageUrl) {
     return { verified: true };
   }
 
-  var accountId = props.getProperty('GOOGLE_GBP_ACCOUNT_ID');
-  var locationId = props.getProperty('GOOGLE_GBP_LOCATION_ID');
+  var accountId = props.getProperty('GOOGLE_GBP_ACCOUNT_ID_' + businessKey) || props.getProperty('GOOGLE_GBP_ACCOUNT_ID');
+  var locationId = props.getProperty('GOOGLE_GBP_LOCATION_ID_' + businessKey) || props.getProperty('GOOGLE_GBP_LOCATION_ID');
 
   // Verify returned name format: accounts/{accountId}/locations/{locationId}/localPosts/{postId}
   var expectedPrefix = "accounts/" + accountId + "/locations/" + locationId + "/localPosts/";
   if (!postName || postName.indexOf(expectedPrefix) !== 0) {
-    return { verified: false, error: "Post name format invalid: " + postName };
+    return { verified: false, error: "Post name format invalid for " + businessKey + ": " + postName };
   }
 
   var accessToken = refreshGbpAccessToken();
@@ -474,26 +528,38 @@ function runLocalSuite() {
     }
   }
 
-  // Test 1: Content Validation (Valid)
-  var res1 = validateContent("This is a beautiful new winter outfit at AME Bazaar Kirari. Come check it out.");
-  assert("Valid Content check", res1.valid === true);
+  // Test 1: Content Validation (Valid AME_BAZAAR)
+  var res1 = validateContent("This is a beautiful new winter outfit at AME Bazaar Kirari. Come check it out.", "AME_BAZAAR");
+  assert("Valid AME_BAZAAR content check", res1.valid === true);
 
-  // Test 2: Banned Words Check
-  var res2 = validateContent("This is a placeholder post with Sam for AME Bazaar.");
-  assert("Banned Words check", res2.valid === false && res2.errors.join("").indexOf("banned") !== -1);
+  // Test 2: Content Validation (Invalid AME_BAZAAR with unverified cheapest claim)
+  var res2 = validateContent("Cheapest clothes ever at AME Bazaar Kirari Delhi.", "AME_BAZAAR");
+  assert("Invalid AME_BAZAAR content check (cheapest)", res2.valid === false && res2.errors.join("").indexOf("promotional") !== -1);
 
-  // Test 3: Length Check (Too short)
-  var res3 = validateContent("short");
-  assert("Length too short check", res3.valid === false && res3.errors.join("").indexOf("too short") !== -1);
+  // Test 3: Content Validation (Valid MAHESHWARI_COUNSEL)
+  var res3 = validateContent("This post provides practical legal information on property registration processes in Delhi.", "MAHESHWARI_COUNSEL");
+  assert("Valid MAHESHWARI_COUNSEL content check", res3.valid === true);
 
-  // Test 4: Duplicate hashing consistency
+  // Test 4: Content Validation (Invalid MAHESHWARI_COUNSEL with win case solicitation)
+  var res4 = validateContent("We are the best lawyer in Delhi. We guarantee to win your case.", "MAHESHWARI_COUNSEL");
+  assert("Invalid MAHESHWARI_COUNSEL content check (solicitation)", res4.valid === false && res4.errors.join("").indexOf("solicitation") !== -1);
+
+  // Test 5: Content Validation (Invalid ADVAITH_EDUCATIONAL_CENTER with unverified ranking claim)
+  var res5 = validateContent("Advaith offers 100% selection rate and CBSE affiliation.", "ADVAITH_EDUCATIONAL_CENTER");
+  assert("Invalid ADVAITH content check (unverified claims)", res5.valid === false);
+
+  // Test 6: Content Validation (Invalid SIS with unverified ranking claim)
+  var res6 = validateContent("Saraswati International School is the best school with 100% board results.", "SIS");
+  assert("Invalid SIS content check (unverified claims)", res6.valid === false);
+
+  // Test 7: Duplicate hashing consistency
   var hash1 = computeHash("Test string");
   var hash2 = computeHash("Test string");
   assert("Hash consistency check", hash1 === hash2);
 
-  // Test 5: Image accessibility simulation
-  var res5 = testImageAccessibility("https://res.cloudinary.com/demo/image/upload/sample.jpg");
-  assert("Image accessibility format check", res5.valid === true);
+  // Test 8: Image accessibility simulation
+  var res8 = testImageAccessibility("https://res.cloudinary.com/demo/image/upload/sample.jpg");
+  assert("Image accessibility format check", res8.valid === true);
 
   Logger.log("=== SUITE SUMMARY: " + passed + " PASSED, " + failed + " FAILED ===");
   return { passed: passed, failed: failed };
