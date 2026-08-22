@@ -573,4 +573,138 @@ function runLocalSuite() {
   return { passed: passed, failed: failed };
 }
 
+/**
+ * Run automatic account and location discovery for GMB
+ * Searches for matches for the 4 businesses, logs results, and saves the verified non-secret IDs
+ */
+function runGbpDiscovery() {
+  Logger.log("=== STARTING AUTOMATIC GBP DISCOVERY ===");
+  var props = PropertiesService.getScriptProperties();
+  
+  var clientId = props.getProperty('GOOGLE_CLIENT_ID');
+  var clientSecret = props.getProperty('GOOGLE_CLIENT_SECRET');
+  var refreshToken = props.getProperty('GOOGLE_GBP_REFRESH_TOKEN');
+  
+  if (!clientId || !clientSecret || !refreshToken) {
+    Logger.log("[ERROR] Discovery aborted: Missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, or GOOGLE_GBP_REFRESH_TOKEN in Script Properties.");
+    return { success: false, error: "Missing OAuth credentials in Script Properties" };
+  }
+  
+  var accessToken = refreshGbpAccessToken();
+  if (!accessToken) {
+    Logger.log("[ERROR] Discovery aborted: Failed to refresh GBP access token.");
+    return { success: false, error: "Token refresh failed" };
+  }
+  
+  var targets = {
+    "AME_BAZAAR": { name: "AME Bazaar - Family Garment Store", accountProp: "GOOGLE_GBP_ACCOUNT_ID_AME_BAZAAR", locationProp: "GOOGLE_GBP_LOCATION_ID_AME_BAZAAR" },
+    "MAHESHWARI_COUNSEL": { name: "Maheshwari Counsel | Advocates & Legal Consultants", accountProp: "GOOGLE_GBP_ACCOUNT_ID_MAHESHWARI_COUNSEL", locationProp: "GOOGLE_GBP_LOCATION_ID_MAHESHWARI_COUNSEL" },
+    "ADVAITH_EDUCATIONAL_CENTER": { name: "Advaith Educational Centre", accountProp: "GOOGLE_GBP_ACCOUNT_ID_ADVAITH_EDUCATIONAL_CENTER", locationProp: "GOOGLE_GBP_LOCATION_ID_ADVAITH_EDUCATIONAL_CENTER" },
+    "SIS": { name: "SARASWATI INTERNATIONAL SCHOOL", accountProp: "GOOGLE_GBP_ACCOUNT_ID_SIS", locationProp: "GOOGLE_GBP_LOCATION_ID_SIS" }
+  };
+  
+  var matches = {};
+  for (var key in targets) {
+    matches[key] = [];
+  }
+  
+  try {
+    // 1. Fetch Accounts
+    var accountsUrl = "https://mybusinessaccountmanagement.googleapis.com/v1/accounts";
+    var accResponse = UrlFetchApp.fetch(accountsUrl, {
+      method: 'get',
+      headers: { 'Authorization': 'Bearer ' + accessToken },
+      muteHttpExceptions: true
+    });
+    
+    if (accResponse.getResponseCode() !== 200) {
+      Logger.log("[ERROR] Failed to list accounts: " + accResponse.getContentText());
+      return { success: false, error: "Accounts fetch failed: " + accResponse.getResponseCode() };
+    }
+    
+    var accountsData = JSON.parse(accResponse.getContentText());
+    var accounts = accountsData.accounts || [];
+    Logger.log("Found " + accounts.length + " GMB Accounts.");
+    
+    // 2. Fetch Locations per Account
+    for (var i = 0; i < accounts.length; i++) {
+      var account = accounts[i];
+      var accountId = account.name.split("/")[1];
+      Logger.log("Scanning Account: " + account.accountName + " (" + accountId + ")");
+      
+      var locationsUrl = "https://mybusinessbusinessinformation.googleapis.com/v1/" + account.name + "/locations?readMask=name,title,storefrontAddress";
+      var locResponse = UrlFetchApp.fetch(locationsUrl, {
+        method: 'get',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+        muteHttpExceptions: true
+      });
+      
+      if (locResponse.getResponseCode() === 200) {
+        var locData = JSON.parse(locResponse.getContentText());
+        var locations = locData.locations || [];
+        Logger.log("Found " + locations.length + " locations in this account.");
+        
+        for (var j = 0; j < locations.length; j++) {
+          var loc = locations[j];
+          var locationId = loc.name.split("/")[1];
+          var locTitle = loc.title || "";
+          var cleanTitle = locTitle.toLowerCase().trim();
+          var address = loc.storefrontAddress ? JSON.stringify(loc.storefrontAddress) : "";
+          
+          Logger.log("Found listing: '" + locTitle + "' | ID: " + locationId);
+          
+          // Match logic
+          for (var bKey in targets) {
+            var targetName = targets[bKey].name.toLowerCase().trim();
+            if (cleanTitle === targetName || cleanTitle.indexOf(targetName) !== -1 || targetName.indexOf(cleanTitle) !== -1) {
+              matches[bKey].push({
+                accountId: accountId,
+                locationId: locationId,
+                title: locTitle,
+                address: address
+              });
+            }
+          }
+        }
+      } else {
+        Logger.log("[WARN] Failed to fetch locations for " + account.name + ": " + locResponse.getContentText());
+      }
+    }
+    
+    // 3. Verify matches and save
+    var summary = [];
+    var configuredCount = 0;
+    
+    for (var bKey in targets) {
+      var businessMatches = matches[bKey];
+      if (businessMatches.length === 1) {
+        var matched = businessMatches[0];
+        props.setProperty(targets[bKey].accountProp, matched.accountId);
+        props.setProperty(targets[bKey].locationProp, matched.locationId);
+        Logger.log("[SUCCESS] Matched and Configured " + bKey + " -> Account: " + matched.accountId + ", Location: " + matched.locationId);
+        summary.push(bKey + " | " + matched.title + " | " + matched.accountId + " | " + matched.locationId + " | VERIFIED");
+        configuredCount++;
+      } else if (businessMatches.length > 1) {
+        Logger.log("[AMBIGUITY] Multiple matches found for " + bKey + ". Manual intervention required.");
+        summary.push(bKey + " | AMBIGUOUS | PENDING_CONFIGURATION | PENDING_CONFIGURATION | AMBIGUOUS");
+      } else {
+        Logger.log("[MISSING] No match found for target: " + targets[bKey].name);
+        summary.push(bKey + " | MISSING | PENDING_CONFIGURATION | PENDING_CONFIGURATION | MISSING");
+      }
+    }
+    
+    Logger.log("=== DISCOVERY COMPLETED ===");
+    Logger.log("Configured: " + configuredCount + "/4 businesses.");
+    return {
+      success: true,
+      configuredCount: configuredCount,
+      summary: summary
+    };
+    
+  } catch (err) {
+    Logger.log("[ERROR] Exception during discovery: " + err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 
