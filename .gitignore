@@ -1,0 +1,25 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and secrets
+.env
+.env.local
+.env.production
+.env.development
+secrets.json
+oauth_tokens.json
+
+# Local Clasp configurations (optional, if scriptId is private)
+.clasp.json
+
+# Logs
+*.log
+logs/
+.system_generated/
+
+# OS specific files
+.DS_Store
+Thumbs.db
