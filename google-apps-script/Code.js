@@ -844,6 +844,386 @@ function runConfigCheck() {
   Logger.log("\n=============================================");
 }
 
+/**
+ * -------------------------------------------------------------
+ * 11. Autonomous Content Generation & Scheduling Engine (Option A)
+ * -------------------------------------------------------------
+ */
+
+var BUSINESS_ROTATION_ORDER = [
+  "AME_BAZAAR",
+  "MAHESHWARI_COUNSEL",
+  "ADVAITH_EDUCATIONAL_CENTER",
+  "SIS"
+];
+
+var BUSINESS_CONTENT_CONFIG = {
+  "AME_BAZAAR": {
+    name: "AME Bazaar - Family Garment Store",
+    locationEntities: "Mubarakpur Road, Kirari Suleman Nagar, Nangloi, Delhi",
+    ctaUrl: "https://g.page/r/amebazaar",
+    pillars: [
+      { id: "ethnic_festive", name: "Family Ethnic Wear & Festive Outfits", angle: "Traditional festive wear, sarees, kurtas, and matching family styling for celebrations." },
+      { id: "seasonal_wardrobe", name: "Seasonal Fabrics & Daily Wear Guide", angle: "Comfortable fabrics, season-appropriate clothing selection, and daily garment care tips." },
+      { id: "custom_tailoring", name: "Custom Tailoring & Fitting Advice", angle: "Tailoring precision, sizing alterations, and custom garment fit awareness at our Kirari workshop." },
+      { id: "kids_mens_wear", name: "Men's and Kids' Practical Everyday Fashion", angle: "Durable and trendy everyday garments for kids and versatile essentials for men." },
+      { id: "local_shopping", name: "Kirari Family Shopping Experience", angle: "Convenient local family clothing shopping on Mubarakpur Road, Kirari." }
+    ],
+    images: [
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80"
+    ],
+    guidelines: "Write in warm, helpful Hinglish or clean conversational English. Focus on fabric quality, family styling, and local store experience. FORBIDDEN: Do not use words 'cheapest', 'lowest price', 'guaranteed cheapest'. Never mention persona 'Sam'."
+  },
+  "MAHESHWARI_COUNSEL": {
+    name: "Maheshwari Counsel | Advocates & Legal Consultants",
+    locationEntities: "Kirari, Suleman Nagar, Nangloi, Delhi",
+    ctaUrl: "https://g.page/r/maheshwari_counsel",
+    pillars: [
+      { id: "property_registry", name: "Property Due Diligence & Registration Process", angle: "Practical legal awareness on property title verification, encumbrance checks, and registration procedures in Delhi." },
+      { id: "civil_remedies", name: "Civil Rights & Dispute Resolution Process", angle: "Educational clarity on legal notices, mediation alternatives, and civil court process basics." },
+      { id: "succession_wills", name: "Will Drafting & Estate Planning Essentials", angle: "The importance of clear testamentary documentation, legal execution requirements, and family succession clarity." },
+      { id: "consumer_rights", name: "Consumer Rights & Complaint Redressal", angle: "Understanding consumer protection rights, defective service remedies, and documentation for consumer forums." },
+      { id: "commercial_agreements", name: "Contractual Drafting & Agreement Clarity", angle: "Key clauses to review in commercial agreements, tenancy deeds, and service contracts for legal certainty." }
+    ],
+    images: [
+      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1505664194779-8beaceb93744?w=800&auto=format&fit=crop&q=80"
+    ],
+    guidelines: "Write in objective, informative, professional English. Offer helpful legal awareness and procedural guidance. FORBIDDEN: Strictly no solicitation, no 'best lawyer', no 'win your case' or guaranteed legal outcome claims."
+  },
+  "ADVAITH_EDUCATIONAL_CENTER": {
+    name: "Advaith Educational Centre",
+    locationEntities: "Kirari, Suleman Nagar, Nangloi, Delhi",
+    ctaUrl: "https://g.page/r/advaith_education",
+    pillars: [
+      { id: "study_habits", name: "Daily Study Routines & Focus Techniques", angle: "Structured revision techniques, Pomodoro time management, and minimizing distractions during self-study." },
+      { id: "conceptual_learning", name: "Conceptual Understanding in STEM & Problem Solving", angle: "Active recall methods, mind mapping, and mastering fundamental concepts in mathematics and science." },
+      { id: "exam_readiness", name: "Exam Preparation Timelines & Stress Management", angle: "Structuring a 30-day revision cycle, mock testing habits, and building student academic confidence." },
+      { id: "parent_support", name: "Parental Guidance for Student Learning", angle: "How parents can create an encouraging home study environment and support consistent academic growth." },
+      { id: "analytical_thinking", name: "Critical Thinking & Self-Directed Learning", angle: "Fostering curiosity, reading habits, and analytical problem-solving skills in growing students." }
+    ],
+    images: [
+      "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=80"
+    ],
+    guidelines: "Write in encouraging, student-centric, educational English. Focus on study methodology, habit-building, and academic clarity. FORBIDDEN: Do not claim 'Rank 1', '100% selection', 'percentile', or unverified affiliation claims."
+  },
+  "SIS": {
+    name: "SARASWATI INTERNATIONAL SCHOOL",
+    locationEntities: "Kirari, Suleman Nagar, Delhi",
+    ctaUrl: "https://g.page/r/sis_school",
+    pillars: [
+      { id: "foundational_literacy", name: "Early Reading & Foundational Literacy", angle: "Developing daily reading habits, vocabulary enrichment, and comprehension in school students." },
+      { id: "holistic_growth", name: "Holistic Development: Arts, Sports & Academics", angle: "Balancing co-curricular creativity, physical wellness, and academic discovery in student life." },
+      { id: "digital_balance", name: "Healthy Screen Time & Digital Learning", angle: "Guidance on balanced technology use, educational tools, and healthy digital boundaries for young minds." },
+      { id: "experiential_science", name: "Experiential Learning & Hands-On Discovery", angle: "Encouraging curiosity through practical science experiments, nature exploration, and creative projects." },
+      { id: "family_collaboration", name: "Parent-School Collaboration for Child Growth", angle: "Effective communication between educators and families to nurture student curiosity and well-being." }
+    ],
+    images: [
+      "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80"
+    ],
+    guidelines: "Write in inspiring, family-oriented, pedagogical English. Focus on child development, learning joy, and school values. FORBIDDEN: Do not invent board affiliations (like CBSE), 'No.1 school', 'best school', or guaranteed exam results."
+  }
+};
+
+/**
+ * Get recent topic history from Script Properties
+ */
+function getRecentTopics(businessKey) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('GMB_TOPICS_' + businessKey);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Store updated topic history in Script Properties (keeps last 15 topics)
+ */
+function recordTopicHistory(businessKey, topicTitle) {
+  var props = PropertiesService.getScriptProperties();
+  var history = getRecentTopics(businessKey);
+  if (topicTitle && topicTitle.trim()) {
+    history.unshift(topicTitle.trim());
+    if (history.length > 15) {
+      history = history.slice(0, 15);
+    }
+    props.setProperty('GMB_TOPICS_' + businessKey, JSON.stringify(history));
+  }
+}
+
+/**
+ * Generate a unique GMB post for a business using Gemini API
+ */
+function generateGmbPostWithGemini(businessKey) {
+  var logPrefix = "[generateGmbPostWithGemini][" + businessKey + "] ";
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('GEMINI_API_KEY');
+  
+  if (!apiKey) {
+    Logger.log(logPrefix + "GEMINI_API_KEY missing in Script Properties.");
+    return { success: false, error: "GEMINI_API_KEY missing in Script Properties" };
+  }
+
+  var config = BUSINESS_CONTENT_CONFIG[businessKey];
+  if (!config) {
+    return { success: false, error: "Unknown business key: " + businessKey };
+  }
+
+  // Determine pillar rotation based on topic history length
+  var recentTopics = getRecentTopics(businessKey);
+  var pillarIndex = recentTopics.length % config.pillars.length;
+  var selectedPillar = config.pillars[pillarIndex];
+
+  var avoidTopicsInstruction = recentTopics.length > 0
+    ? "IMPORTANT: Do NOT repeat the angles or specific topics of these recent posts:\n- " + recentTopics.slice(0, 10).join("\n- ")
+    : "This is the initial post for this pillar.";
+
+  var promptText = "You are the official local Google Business Profile content author for \"" + config.name + "\".\n\n" +
+    "Task: Generate a high-quality, authentic, informative Google Business Profile Local Post (100 to 250 words) targeting SEO, AEO (Answer Engine Optimization), and GEO (local search relevance).\n\n" +
+    "Business Details:\n" +
+    "- Business Name: " + config.name + "\n" +
+    "- Local Area / Entities: " + config.locationEntities + "\n" +
+    "- Content Pillar: " + selectedPillar.name + "\n" +
+    "- Focus Angle: " + selectedPillar.angle + "\n\n" +
+    "Specific Guidelines:\n" +
+    config.guidelines + "\n\n" +
+    avoidTopicsInstruction + "\n\n" +
+    "Formatting Requirements:\n" +
+    "- Length: Between 100 and 250 words.\n" +
+    "- Naturally integrate local entities (" + config.locationEntities + ") without keyword stuffing.\n" +
+    "- Provide actionable, helpful information that directly answers local search queries.\n" +
+    "- Conclude with a natural invitation to learn more or visit.\n\n" +
+    "Output must be valid JSON ONLY in this exact structure with NO surrounding markdown backticks:\n" +
+    "{\n" +
+    "  \"topic_title\": \"Specific unique topic title (5-10 words)\",\n" +
+    "  \"summary\": \"The full GMB post body text...\"\n" +
+    "}";
+
+  var models = [
+    props.getProperty('GEMINI_MODEL') || 'gemini-2.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-flash'
+  ];
+
+  for (var m = 0; m < models.length; m++) {
+    var model = models[m];
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+    
+    try {
+      Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
+      var response = UrlFetchApp.fetch(url, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7
+          }
+        }),
+        muteHttpExceptions: true
+      });
+
+      var code = response.getResponseCode();
+      if (code === 200) {
+        var data = JSON.parse(response.getContentText());
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+          var rawText = data.candidates[0].content.parts[0].text.trim();
+          // Clean possible markdown code fence wrappers
+          if (rawText.indexOf("```json") === 0) rawText = rawText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+          if (rawText.indexOf("```") === 0) rawText = rawText.replace(/^```\s*/i, "").replace(/```$/, "").trim();
+
+          var parsed = JSON.parse(rawText);
+          if (parsed.summary && parsed.summary.trim().length > 20) {
+            return {
+              success: true,
+              summary: parsed.summary.trim(),
+              topic_title: parsed.topic_title || selectedPillar.name,
+              pillar_id: selectedPillar.id,
+              cta_url: config.ctaUrl,
+              model_used: model
+            };
+          }
+        }
+      } else {
+        Logger.log(logPrefix + "Model " + model + " returned HTTP " + code + ": " + response.getContentText());
+      }
+    } catch (err) {
+      Logger.log(logPrefix + "Error calling Gemini (" + model + "): " + err.message);
+    }
+  }
+
+  return { success: false, error: "All fallback Gemini models failed to generate valid content" };
+}
+
+/**
+ * Resolves a verified accessible image for the given business
+ */
+function resolveVerifiedImageForBusiness(businessKey, pillarIndex) {
+  var config = BUSINESS_CONTENT_CONFIG[businessKey];
+  if (!config || !config.images || config.images.length === 0) {
+    Logger.log("[IMAGE_MISSING] No image pool defined for " + businessKey);
+    return null;
+  }
+
+  var idx = (pillarIndex || 0) % config.images.length;
+  var candidateUrl = config.images[idx];
+
+  // Try Cloudinary upload if configured
+  var cloudinaryUrl = uploadToCloudinaryIfAvailable(candidateUrl);
+  var finalUrl = cloudinaryUrl || candidateUrl;
+
+  // Validate accessibility
+  var accessCheck = testImageAccessibility(finalUrl);
+  if (accessCheck.valid) {
+    return finalUrl;
+  } else {
+    Logger.log("[IMAGE_MISSING] Image accessibility failed for " + finalUrl + ": " + accessCheck.error);
+    return null;
+  }
+}
+
+/**
+ * Autonomous Scheduled Daily GMB Post Runner
+ * Called by time-driven trigger once daily (~9 AM IST)
+ */
+function scheduledGmbPostRunner() {
+  Logger.log("=== STARTING AUTONOMOUS SCHEDULED GMB POST RUNNER ===");
+  var props = PropertiesService.getScriptProperties();
+
+  // Safety check: Enforce TEST_MODE
+  var isTestModeProp = props.getProperty('TEST_MODE');
+  if (isTestModeProp !== null) {
+    TEST_MODE = isTestModeProp.toLowerCase() === 'true';
+  }
+  Logger.log("Execution Mode: " + (TEST_MODE ? "TEST_MODE (Safety Mock Enabled)" : "LIVE PUBLISH"));
+
+  // 1. Determine current business in 4-day round-robin cycle
+  var rotationIndex = parseInt(props.getProperty('GMB_ROTATION_INDEX') || '0', 10);
+  var businessKey = BUSINESS_ROTATION_ORDER[rotationIndex % BUSINESS_ROTATION_ORDER.length];
+  Logger.log("Scheduled target business: " + businessKey + " (Rotation cycle index: " + rotationIndex + ")");
+
+  // 2. Generate business-specific content via Gemini API
+  var genResult = generateGmbPostWithGemini(businessKey);
+  if (!genResult.success) {
+    Logger.log("[ABORT] Content generation failed for " + businessKey + ": " + genResult.error);
+    return { success: false, error: genResult.error };
+  }
+
+  var summary = genResult.summary;
+  var topicTitle = genResult.topic_title;
+  var ctaUrl = genResult.cta_url;
+  Logger.log("Generated topic: '" + topicTitle + "' | Length: " + summary.length + " chars");
+
+  // 3. Hard Safety & Policy Validation Gate
+  var validation = validateContent(summary, businessKey);
+  if (!validation.valid) {
+    Logger.log("[ABORT] Generated content failed validation gate for " + businessKey + ": " + validation.errors.join(", "));
+    return { success: false, error: "Validation gate failed: " + validation.errors.join(", ") };
+  }
+
+  // 4. Resolve & Validate Image
+  var recentTopics = getRecentTopics(businessKey);
+  var imagePillarIndex = recentTopics.length;
+  var imageUrl = resolveVerifiedImageForBusiness(businessKey, imagePillarIndex);
+  if (!imageUrl) {
+    Logger.log("[ABORT] [IMAGE_MISSING] No accessible image available for " + businessKey + ". Aborting daily run.");
+    return { success: false, error: "IMAGE_MISSING" };
+  }
+
+  // 5. Duplicate Protection
+  var requestId = "scheduled_" + businessKey.toLowerCase() + "_" + Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyyMMdd");
+  var contentHash = computeHash(summary + imageUrl);
+  if (isDuplicate(requestId, contentHash)) {
+    Logger.log("[ABORT] Duplicate detected for " + requestId + " (content hash: " + contentHash + "). Aborting.");
+    return { success: false, error: "Duplicate content detected" };
+  }
+
+  // 6. Construct GMB Payload
+  var postPayload = {
+    request_id: requestId,
+    business: businessKey,
+    summary: summary,
+    media_url: imageUrl,
+    cta_url: ctaUrl
+  };
+
+  // 7. Publish to GBP
+  var postResult = publishToGbp(postPayload, imageUrl, businessKey);
+  if (!postResult.success) {
+    Logger.log("[ERROR] GBP publish failed for " + businessKey + ": " + postResult.error);
+    return { success: false, error: postResult.error };
+  }
+
+  // 8. Verify post
+  var verification = verifyGbpPost(postResult.postName, postPayload, imageUrl, businessKey);
+  if (!verification.verified) {
+    Logger.log("[ERROR] Post verification failed for " + businessKey + ": " + verification.error);
+    return { success: false, error: "Post verification failed: " + verification.error };
+  }
+
+  // 9. Lock duplicate records & update topic memory
+  recordProcessedRequest(requestId, contentHash);
+  recordTopicHistory(businessKey, topicTitle);
+
+  // 10. Advance rotation index for tomorrow's run
+  var nextIndex = (rotationIndex + 1) % BUSINESS_ROTATION_ORDER.length;
+  props.setProperty('GMB_ROTATION_INDEX', String(nextIndex));
+  Logger.log("Advanced rotation index to: " + nextIndex + " (Next: " + BUSINESS_ROTATION_ORDER[nextIndex] + ")");
+
+  Logger.log("=== SCHEDULED GMB POST RUNNER FINISHED SUCCESSFULLY ===");
+  return {
+    success: true,
+    business: businessKey,
+    topic: topicTitle,
+    post_id: postResult.postId,
+    verified: true,
+    next_business: BUSINESS_ROTATION_ORDER[nextIndex]
+  };
+}
+
+/**
+ * Deletes all existing triggers for scheduledGmbPostRunner
+ */
+function removeGmbTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'scheduledGmbPostRunner') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
+    }
+  }
+  Logger.log("Removed " + removed + " existing GMB scheduled triggers.");
+  return removed;
+}
+
+/**
+ * Sets up exactly ONE clean daily time-driven trigger for ~9:00 AM IST
+ */
+function setupGmbDailyTrigger() {
+  removeGmbTriggers();
+  var trigger = ScriptApp.newTrigger('scheduledGmbPostRunner')
+    .timeBased()
+    .everyDays(1)
+    .atHour(9) // ~9:00 AM IST
+    .create();
+  Logger.log("Successfully created daily GMB trigger (ID: " + trigger.getUniqueId() + ") for 9:00 AM IST.");
+  return { success: true, triggerId: trigger.getUniqueId() };
+}
+
+
 
 
 
