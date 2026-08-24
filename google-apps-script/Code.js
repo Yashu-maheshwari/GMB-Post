@@ -607,7 +607,8 @@ function runGbpDiscovery() {
     },
     "MAHESHWARI_COUNSEL": { 
       name: "Maheshwari Counsel | Advocates & Legal Consultants", 
-      keywords: ["maheshwari counsel", "advocates & legal consultants", "maheshwari"],
+      keywords: ["maheshwari counsel | advocates & legal consultants", "maheshwari counsel"],
+      requiredAddressKeywords: ["delhi", "kirari", "suleman nagar", "nangloi", "110086", "110041"],
       accountProp: "GOOGLE_GBP_ACCOUNT_ID_MAHESHWARI_COUNSEL", 
       locationProp: "GOOGLE_GBP_LOCATION_ID_MAHESHWARI_COUNSEL" 
     },
@@ -694,6 +695,21 @@ function runGbpDiscovery() {
                     break;
                   }
                 }
+              }
+            }
+            
+            if (isMatch && target.requiredAddressKeywords && target.requiredAddressKeywords.length > 0) {
+              var cleanAddress = address.toLowerCase();
+              var addressMatched = false;
+              for (var a = 0; a < target.requiredAddressKeywords.length; a++) {
+                if (cleanAddress.indexOf(target.requiredAddressKeywords[a]) !== -1) {
+                  addressMatched = true;
+                  break;
+                }
+              }
+              if (!addressMatched) {
+                isMatch = false;
+                Logger.log("[DISCOVERY] Listing '" + locTitle + "' ignored: Address does not match required local Delhi/Kirari criteria.");
               }
             }
             
