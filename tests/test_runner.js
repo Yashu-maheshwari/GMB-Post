@@ -103,7 +103,7 @@ const sandbox = {
     }
   },
   ScriptApp: {
-    getProjectTriggers: () => mockTriggers,
+    getProjectTriggers: () => [...mockTriggers],
     deleteTrigger: (trigger) => {
       mockTriggers = mockTriggers.filter(t => t.getUniqueId() !== trigger.getUniqueId());
     },
@@ -112,9 +112,10 @@ const sandbox = {
         everyDays: (n) => ({
           atHour: (h) => ({
             create: () => {
+              const triggerId = "trig_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
               const newTrig = {
                 getHandlerFunction: () => functionName,
-                getUniqueId: () => "trig_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5)
+                getUniqueId: () => triggerId
               };
               mockTriggers.push(newTrig);
               return newTrig;
@@ -300,29 +301,30 @@ const missingImageRun = sandbox.scheduledGmbPostRunner();
 assert("scheduledGmbPostRunner aborts with IMAGE_MISSING when image pool is empty", missingImageRun.success === false && missingImageRun.error === "IMAGE_MISSING");
 sandbox.BUSINESS_CONTENT_CONFIG['SIS'].images = origConfig; // Restore
 
-// Test 7: 4-Business Round-Robin Rotation
-mockProperties['GMB_ROTATION_INDEX'] = '0';
-const run1 = sandbox.scheduledGmbPostRunner();
-assert("scheduledGmbPostRunner executes Day 1: AME_BAZAAR", run1.success === true && run1.business === "AME_BAZAAR");
-assert("Rotation index advances to 1", mockProperties['GMB_ROTATION_INDEX'] === '1');
+// Test 7: Dedicated 4-Business Daily Post Functions
+const ameRun = sandbox.scheduledGmbPostAME();
+assert("scheduledGmbPostAME executes for AME_BAZAAR", ameRun.success === true && ameRun.business === "AME_BAZAAR");
 
-const run2 = sandbox.scheduledGmbPostRunner();
-assert("scheduledGmbPostRunner executes Day 2: MAHESHWARI_COUNSEL", run2.success === true && run2.business === "MAHESHWARI_COUNSEL");
-assert("Rotation index advances to 2", mockProperties['GMB_ROTATION_INDEX'] === '2');
+const counselRun = sandbox.scheduledGmbPostCounsel();
+assert("scheduledGmbPostCounsel executes for MAHESHWARI_COUNSEL", counselRun.success === true && counselRun.business === "MAHESHWARI_COUNSEL");
 
-const run3 = sandbox.scheduledGmbPostRunner();
-assert("scheduledGmbPostRunner executes Day 3: ADVAITH_EDUCATIONAL_CENTER", run3.success === true && run3.business === "ADVAITH_EDUCATIONAL_CENTER");
-assert("Rotation index advances to 3", mockProperties['GMB_ROTATION_INDEX'] === '3');
+const advaithRun = sandbox.scheduledGmbPostAdvaith();
+assert("scheduledGmbPostAdvaith executes for ADVAITH_EDUCATIONAL_CENTER", advaithRun.success === true && advaithRun.business === "ADVAITH_EDUCATIONAL_CENTER");
 
-const run4 = sandbox.scheduledGmbPostRunner();
-assert("scheduledGmbPostRunner executes Day 4: SIS", run4.success === true && run4.business === "SIS");
-assert("Rotation index rolls over to 0", mockProperties['GMB_ROTATION_INDEX'] === '0');
+const sisRun = sandbox.scheduledGmbPostSIS();
+assert("scheduledGmbPostSIS executes for SIS", sisRun.success === true && sisRun.business === "SIS");
 
-// Test 8: Trigger Management (clean setup and removal)
-const triggerSetup = sandbox.setupGmbDailyTrigger();
-assert("setupGmbDailyTrigger creates clean daily trigger", triggerSetup.success === true && triggerSetup.triggerId.length > 0);
-const triggersRemoved = sandbox.removeGmbTriggers();
-assert("removeGmbTriggers cleans up existing triggers", triggersRemoved === 1);
+// Test 8: 4-Trigger Management (clean setup and removal)
+const triggerSetup = sandbox.setupGmbDailyTriggers();
+assert("setupGmbDailyTriggers creates exactly 4 daily triggers", triggerSetup.success === true && triggerSetup.totalTriggers === 4);
+assert("Trigger schedule contains all 4 business handlers", triggerSetup.schedule.length === 4 && triggerSetup.schedule[0].handler === "scheduledGmbPostAME" && triggerSetup.schedule[3].handler === "scheduledGmbPostSIS");
+
+// Verify no duplicate triggers on re-run
+const triggerSetup2 = sandbox.setupGmbDailyTriggers();
+assert("Re-running setupGmbDailyTriggers prevents duplicate accumulation", triggerSetup2.totalTriggers === 4 && sandbox.ScriptApp.getProjectTriggers().length === 4);
+
+const triggersRemoved = sandbox.removeGmbDailyTriggers();
+assert("removeGmbDailyTriggers cleans up all 4 existing triggers", triggersRemoved === 4 && sandbox.ScriptApp.getProjectTriggers().length === 0);
 
 console.log(`\n=== NODE.JS UNIT TESTS: ${testPassed} PASSED, ${testFailed} FAILED ===`);
 if (testFailed > 0 || internalResult.failed > 0) {

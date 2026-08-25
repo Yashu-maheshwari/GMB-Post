@@ -367,6 +367,8 @@ function publishToGbp(postData, imageUrl, businessKey) {
 
   var url = "https://mybusiness.googleapis.com/v4/accounts/" + accountId + "/locations/" + locationId + "/localPosts";
   var payload = {
+    languageCode: "en",
+    topicType: "STANDARD",
     summary: postData.summary,
     callToAction: {
       actionType: "LEARN_MORE",
@@ -462,9 +464,9 @@ function verifyGbpPost(postName, postData, imageUrl, businessKey) {
       }
     }
 
-    // Verify post state is LIVE/ACTIVE
-    if (livePost.state !== "LIVE" && livePost.state !== "ACTIVE") {
-      return { verified: false, error: "Post state is not LIVE/ACTIVE: " + livePost.state };
+    // Verify post state is LIVE/ACTIVE/PROCESSING (GBP media posts start in PROCESSING before moving to LIVE)
+    if (livePost.state !== "LIVE" && livePost.state !== "ACTIVE" && livePost.state !== "PROCESSING") {
+      return { verified: false, error: "Post state is invalid: " + livePost.state };
     }
 
     return { verified: true };
@@ -765,43 +767,99 @@ function runGbpDiscovery() {
 }
 
 /**
- * Run one single controlled live test for AME_BAZAAR.
- * Bypasses TEST_MODE=true for this single execution.
+ * Run one single controlled live test for AME_BAZAAR with Gemini generation and verification.
+ * Strictly restores TEST_MODE=true upon completion or error.
  */
-function runOneLiveTest() {
-  Logger.log("=== STARTING CONTROLLED LIVE GMB TEST FOR AME_BAZAAR ===");
-  
-  var testPayload = {
-    request_id: "live_test_ame_bazaar_" + Date.now(),
-    business: "AME_BAZAAR",
-    summary: "Naye traditional wear collection humare Mubarakpur Road Kirari store par ab available hai! 🌟 Family shopping ke liye naye fabrics aur custom tailoring designs. Traditional ethnic clothing aur family wear ke liye humare store AME Bazaar visit karein.",
-    media_url: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
-    cta_url: "https://g.page/r/amebazaar"
-  };
-  
+function runOneControlledLiveAmePost() {
+  Logger.log("=== STARTING ONE CONTROLLED LIVE GMB POST FOR AME_BAZAAR ===");
   var props = PropertiesService.getScriptProperties();
-  var prevTestMode = props.getProperty('TEST_MODE');
-  props.setProperty('TEST_MODE', 'false');
   
+  var liveReport = {
+    business: "AME_BAZAAR",
+    geminiGeneration: null,
+    validation: null,
+    imageResolution: null,
+    publishResult: null,
+    verification: null,
+    restoredTestMode: null
+  };
+
   try {
-    Logger.log("Publishing to GBP...");
-    var postResult = publishToGbp(testPayload, testPayload.media_url, "AME_BAZAAR");
-    Logger.log("Publish result: " + JSON.stringify(postResult));
-    
-    if (postResult.success) {
-      Logger.log("Verifying post...");
-      var verification = verifyGbpPost(postResult.postName, testPayload, testPayload.media_url, "AME_BAZAAR");
-      Logger.log("Verification status: " + JSON.stringify(verification));
+    // 1. Generate content via Gemini (gemini-3.6-flash)
+    var genResult = generateGmbPostWithGemini("AME_BAZAAR");
+    liveReport.geminiGeneration = genResult;
+    if (!genResult.success) {
+      throw new Error("Gemini generation failed: " + genResult.error);
     }
+
+    var summary = genResult.summary;
+    var topicTitle = genResult.topic_title;
+    var ctaUrl = genResult.cta_url || "https://g.page/r/amebazaar";
+
+    // 2. Validate content
+    var validation = validateContent(summary, "AME_BAZAAR");
+    liveReport.validation = validation;
+    if (!validation.valid) {
+      throw new Error("Content validation failed: " + validation.errors.join(", "));
+    }
+
+    // 3. Resolve & validate image
+    var recentTopics = getRecentTopics("AME_BAZAAR");
+    var imageUrl = resolveVerifiedImageForBusiness("AME_BAZAAR", recentTopics.length);
+    liveReport.imageResolution = { url: imageUrl, valid: !!imageUrl };
+    if (!imageUrl) {
+      throw new Error("IMAGE_MISSING: No accessible verified image available for AME_BAZAAR");
+    }
+
+    // 4. Duplicate check
+    var requestId = "live_controlled_ame_" + Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyyMMdd_HHmmss");
+    var contentHash = computeHash(summary + imageUrl);
+    if (isDuplicate(requestId, contentHash)) {
+      throw new Error("Duplicate content detected for this request");
+    }
+
+    var testPayload = {
+      request_id: requestId,
+      business: "AME_BAZAAR",
+      summary: summary,
+      media_url: imageUrl,
+      cta_url: ctaUrl
+    };
+
+    // 5. Temporarily disable TEST_MODE strictly for this call
+    props.setProperty('TEST_MODE', 'false');
+    TEST_MODE = false;
+
+    // 6. Publish to GBP
+    Logger.log("Publishing live post to GBP for AME_BAZAAR...");
+    var postResult = publishToGbp(testPayload, imageUrl, "AME_BAZAAR");
+    liveReport.publishResult = postResult;
+
+    if (!postResult.success) {
+      throw new Error("GBP Publish failed: " + postResult.error);
+    }
+
+    // 7. Verify live post
+    Logger.log("Verifying live post on GBP...");
+    var verification = verifyGbpPost(postResult.postName, testPayload, imageUrl, "AME_BAZAAR");
+    liveReport.verification = verification;
+
+    // 8. Record processed request & topic memory
+    recordProcessedRequest(requestId, contentHash);
+    recordTopicHistory("AME_BAZAAR", topicTitle);
+
+    return liveReport;
+
   } catch (err) {
     Logger.log("[ERROR] Live test exception: " + err.message);
+    liveReport.error = err.message;
+    return liveReport;
   } finally {
-    if (prevTestMode !== null) {
-      props.setProperty('TEST_MODE', prevTestMode);
-    } else {
-      props.deleteProperty('TEST_MODE');
-    }
-    Logger.log("TEST_MODE restored to original state.");
+    // Critical safety: Always restore TEST_MODE=true
+    props.setProperty('TEST_MODE', 'true');
+    TEST_MODE = true;
+    liveReport.restoredTestMode = "true";
+    Logger.log("CRITICAL SAFETY: TEST_MODE restored to true.");
   }
 }
 
@@ -1010,61 +1068,55 @@ function generateGmbPostWithGemini(businessKey) {
     "  \"summary\": \"The full GMB post body text...\"\n" +
     "}";
 
-  var models = [
-    props.getProperty('GEMINI_MODEL') || 'gemini-2.5-flash',
-    'gemini-1.5-flash-8b',
-    'gemini-1.5-flash'
-  ];
-
-  for (var m = 0; m < models.length; m++) {
-    var model = models[m];
-    var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
-    
-    try {
-      Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
-      var response = UrlFetchApp.fetch(url, {
-        method: "post",
-        contentType: "application/json",
-        payload: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.7
-          }
-        }),
-        muteHttpExceptions: true
-      });
-
-      var code = response.getResponseCode();
-      if (code === 200) {
-        var data = JSON.parse(response.getContentText());
-        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
-          var rawText = data.candidates[0].content.parts[0].text.trim();
-          // Clean possible markdown code fence wrappers
-          if (rawText.indexOf("```json") === 0) rawText = rawText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-          if (rawText.indexOf("```") === 0) rawText = rawText.replace(/^```\s*/i, "").replace(/```$/, "").trim();
-
-          var parsed = JSON.parse(rawText);
-          if (parsed.summary && parsed.summary.trim().length > 20) {
-            return {
-              success: true,
-              summary: parsed.summary.trim(),
-              topic_title: parsed.topic_title || selectedPillar.name,
-              pillar_id: selectedPillar.id,
-              cta_url: config.ctaUrl,
-              model_used: model
-            };
-          }
+  var model = props.getProperty('GEMINI_MODEL') || 'gemini-3.6-flash';
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+  
+  try {
+    Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.7
         }
-      } else {
-        Logger.log(logPrefix + "Model " + model + " returned HTTP " + code + ": " + response.getContentText());
+      }),
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    if (code === 200) {
+      var data = JSON.parse(response.getContentText());
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+        var rawText = data.candidates[0].content.parts[0].text.trim();
+        // Clean possible markdown code fence wrappers
+        if (rawText.indexOf("```json") === 0) rawText = rawText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+        if (rawText.indexOf("```") === 0) rawText = rawText.replace(/^```\s*/i, "").replace(/```$/, "").trim();
+
+        var parsed = JSON.parse(rawText);
+        if (parsed.summary && parsed.summary.trim().length > 20) {
+          return {
+            success: true,
+            summary: parsed.summary.trim(),
+            topic_title: parsed.topic_title || selectedPillar.name,
+            pillar_id: selectedPillar.id,
+            cta_url: config.ctaUrl,
+            model_used: model
+          };
+        }
       }
-    } catch (err) {
-      Logger.log(logPrefix + "Error calling Gemini (" + model + "): " + err.message);
+    } else {
+      Logger.log(logPrefix + "Model " + model + " returned HTTP " + code + ": " + response.getContentText());
+      return { success: false, error: "Gemini API HTTP " + code + ": " + response.getContentText() };
     }
+  } catch (err) {
+    Logger.log(logPrefix + "Error calling Gemini (" + model + "): " + err.message);
+    return { success: false, error: "Exception calling Gemini: " + err.message };
   }
 
-  return { success: false, error: "All fallback Gemini models failed to generate valid content" };
+  return { success: false, error: "Gemini failed to generate valid content" };
 }
 
 /**
@@ -1095,11 +1147,10 @@ function resolveVerifiedImageForBusiness(businessKey, pillarIndex) {
 }
 
 /**
- * Autonomous Scheduled Daily GMB Post Runner
- * Called by time-driven trigger once daily (~9 AM IST)
+ * Core engine for executing a scheduled daily post for a given business
  */
-function scheduledGmbPostRunner() {
-  Logger.log("=== STARTING AUTONOMOUS SCHEDULED GMB POST RUNNER ===");
+function executeScheduledPostForBusiness(businessKey) {
+  Logger.log("=== STARTING SCHEDULED DAILY GMB POST FOR " + businessKey + " ===");
   var props = PropertiesService.getScriptProperties();
 
   // Safety check: Enforce TEST_MODE
@@ -1109,12 +1160,7 @@ function scheduledGmbPostRunner() {
   }
   Logger.log("Execution Mode: " + (TEST_MODE ? "TEST_MODE (Safety Mock Enabled)" : "LIVE PUBLISH"));
 
-  // 1. Determine current business in 4-day round-robin cycle
-  var rotationIndex = parseInt(props.getProperty('GMB_ROTATION_INDEX') || '0', 10);
-  var businessKey = BUSINESS_ROTATION_ORDER[rotationIndex % BUSINESS_ROTATION_ORDER.length];
-  Logger.log("Scheduled target business: " + businessKey + " (Rotation cycle index: " + rotationIndex + ")");
-
-  // 2. Generate business-specific content via Gemini API
+  // 1. Generate business-specific content via Gemini API
   var genResult = generateGmbPostWithGemini(businessKey);
   if (!genResult.success) {
     Logger.log("[ABORT] Content generation failed for " + businessKey + ": " + genResult.error);
@@ -1124,16 +1170,16 @@ function scheduledGmbPostRunner() {
   var summary = genResult.summary;
   var topicTitle = genResult.topic_title;
   var ctaUrl = genResult.cta_url;
-  Logger.log("Generated topic: '" + topicTitle + "' | Length: " + summary.length + " chars");
+  Logger.log("Generated topic for " + businessKey + ": '" + topicTitle + "' | Length: " + summary.length + " chars");
 
-  // 3. Hard Safety & Policy Validation Gate
+  // 2. Hard Safety & Policy Validation Gate
   var validation = validateContent(summary, businessKey);
   if (!validation.valid) {
     Logger.log("[ABORT] Generated content failed validation gate for " + businessKey + ": " + validation.errors.join(", "));
     return { success: false, error: "Validation gate failed: " + validation.errors.join(", ") };
   }
 
-  // 4. Resolve & Validate Image
+  // 3. Resolve & Validate Image
   var recentTopics = getRecentTopics(businessKey);
   var imagePillarIndex = recentTopics.length;
   var imageUrl = resolveVerifiedImageForBusiness(businessKey, imagePillarIndex);
@@ -1142,7 +1188,7 @@ function scheduledGmbPostRunner() {
     return { success: false, error: "IMAGE_MISSING" };
   }
 
-  // 5. Duplicate Protection
+  // 4. Duplicate Protection
   var requestId = "scheduled_" + businessKey.toLowerCase() + "_" + Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyyMMdd");
   var contentHash = computeHash(summary + imageUrl);
   if (isDuplicate(requestId, contentHash)) {
@@ -1150,7 +1196,7 @@ function scheduledGmbPostRunner() {
     return { success: false, error: "Duplicate content detected" };
   }
 
-  // 6. Construct GMB Payload
+  // 5. Construct GMB Payload
   var postPayload = {
     request_id: requestId,
     business: businessKey,
@@ -1159,48 +1205,88 @@ function scheduledGmbPostRunner() {
     cta_url: ctaUrl
   };
 
-  // 7. Publish to GBP
+  // 6. Publish to GBP
   var postResult = publishToGbp(postPayload, imageUrl, businessKey);
   if (!postResult.success) {
     Logger.log("[ERROR] GBP publish failed for " + businessKey + ": " + postResult.error);
     return { success: false, error: postResult.error };
   }
 
-  // 8. Verify post
+  // 7. Verify post
   var verification = verifyGbpPost(postResult.postName, postPayload, imageUrl, businessKey);
   if (!verification.verified) {
     Logger.log("[ERROR] Post verification failed for " + businessKey + ": " + verification.error);
     return { success: false, error: "Post verification failed: " + verification.error };
   }
 
-  // 9. Lock duplicate records & update topic memory
+  // 8. Lock duplicate records & update topic memory
   recordProcessedRequest(requestId, contentHash);
   recordTopicHistory(businessKey, topicTitle);
 
-  // 10. Advance rotation index for tomorrow's run
-  var nextIndex = (rotationIndex + 1) % BUSINESS_ROTATION_ORDER.length;
-  props.setProperty('GMB_ROTATION_INDEX', String(nextIndex));
-  Logger.log("Advanced rotation index to: " + nextIndex + " (Next: " + BUSINESS_ROTATION_ORDER[nextIndex] + ")");
-
-  Logger.log("=== SCHEDULED GMB POST RUNNER FINISHED SUCCESSFULLY ===");
+  Logger.log("=== SCHEDULED DAILY GMB POST FOR " + businessKey + " FINISHED SUCCESSFULLY ===");
   return {
     success: true,
     business: businessKey,
     topic: topicTitle,
     post_id: postResult.postId,
-    verified: true,
-    next_business: BUSINESS_ROTATION_ORDER[nextIndex]
+    verified: true
   };
 }
 
 /**
- * Deletes all existing triggers for scheduledGmbPostRunner
+ * Dedicated trigger entry points for the 4 daily scheduled posts
  */
-function removeGmbTriggers() {
+function scheduledGmbPostAME() {
+  return executeScheduledPostForBusiness("AME_BAZAAR");
+}
+
+function scheduledGmbPostCounsel() {
+  return executeScheduledPostForBusiness("MAHESHWARI_COUNSEL");
+}
+
+function scheduledGmbPostAdvaith() {
+  return executeScheduledPostForBusiness("ADVAITH_EDUCATIONAL_CENTER");
+}
+
+function scheduledGmbPostSIS() {
+  return executeScheduledPostForBusiness("SIS");
+}
+
+/**
+ * Backward compatibility alias for single runner (defaults to rotation or AME)
+ */
+function scheduledGmbPostRunner() {
+  var props = PropertiesService.getScriptProperties();
+  var rotationIndex = parseInt(props.getProperty('GMB_ROTATION_INDEX') || '0', 10);
+  var businessKey = BUSINESS_ROTATION_ORDER[rotationIndex % BUSINESS_ROTATION_ORDER.length];
+  var res = executeScheduledPostForBusiness(businessKey);
+  if (res.success) {
+    var nextIndex = (rotationIndex + 1) % BUSINESS_ROTATION_ORDER.length;
+    props.setProperty('GMB_ROTATION_INDEX', String(nextIndex));
+  }
+  return res;
+}
+
+/**
+ * All GMB trigger handler names managed by this project
+ */
+var GMB_TRIGGER_HANDLERS = [
+  'scheduledGmbPostAME',
+  'scheduledGmbPostCounsel',
+  'scheduledGmbPostAdvaith',
+  'scheduledGmbPostSIS',
+  'scheduledGmbPostRunner'
+];
+
+/**
+ * Safely removes all existing GMB daily scheduled triggers
+ */
+function removeGmbDailyTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
   var removed = 0;
   for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'scheduledGmbPostRunner') {
+    var handler = triggers[i].getHandlerFunction();
+    if (GMB_TRIGGER_HANDLERS.indexOf(handler) !== -1) {
       ScriptApp.deleteTrigger(triggers[i]);
       removed++;
     }
@@ -1209,18 +1295,57 @@ function removeGmbTriggers() {
   return removed;
 }
 
+// Backward compatibility alias
+function removeGmbTriggers() {
+  return removeGmbDailyTriggers();
+}
+
 /**
- * Sets up exactly ONE clean daily time-driven trigger for ~9:00 AM IST
+ * Sets up exactly FOUR clean daily time-driven triggers:
+ * 09:00 AM IST -> AME_BAZAAR
+ * 11:00 AM IST -> MAHESHWARI_COUNSEL
+ * 01:00 PM IST -> ADVAITH_EDUCATIONAL_CENTER
+ * 03:00 PM IST -> SIS
  */
+function setupGmbDailyTriggers() {
+  removeGmbDailyTriggers();
+
+  var triggerSchedule = [
+    { handler: 'scheduledGmbPostAME', hour: 9, business: 'AME_BAZAAR' },
+    { handler: 'scheduledGmbPostCounsel', hour: 11, business: 'MAHESHWARI_COUNSEL' },
+    { handler: 'scheduledGmbPostAdvaith', hour: 13, business: 'ADVAITH_EDUCATIONAL_CENTER' },
+    { handler: 'scheduledGmbPostSIS', hour: 15, business: 'SIS' }
+  ];
+
+  var created = [];
+  for (var i = 0; i < triggerSchedule.length; i++) {
+    var item = triggerSchedule[i];
+    var trigger = ScriptApp.newTrigger(item.handler)
+      .timeBased()
+      .everyDays(1)
+      .atHour(item.hour)
+      .create();
+    
+    created.push({
+      business: item.business,
+      handler: item.handler,
+      scheduledHourIST: item.hour + ":00 IST",
+      triggerId: trigger.getUniqueId()
+    });
+    Logger.log("Created trigger for " + item.business + " at " + item.hour + ":00 IST (ID: " + trigger.getUniqueId() + ")");
+  }
+
+  Logger.log("Successfully setup all 4 daily GMB triggers.");
+  return {
+    success: true,
+    totalTriggers: created.length,
+    schedule: created
+  };
+}
+
+// Backward compatibility alias
 function setupGmbDailyTrigger() {
-  removeGmbTriggers();
-  var trigger = ScriptApp.newTrigger('scheduledGmbPostRunner')
-    .timeBased()
-    .everyDays(1)
-    .atHour(9) // ~9:00 AM IST
-    .create();
-  Logger.log("Successfully created daily GMB trigger (ID: " + trigger.getUniqueId() + ") for 9:00 AM IST.");
-  return { success: true, triggerId: trigger.getUniqueId() };
+  return setupGmbDailyTriggers();
 }
 
 
