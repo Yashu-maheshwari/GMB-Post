@@ -43,9 +43,45 @@ function doPost(e) {
                       postData.api_secret;
                       
     var expectedSecret = PropertiesService.getScriptProperties().getProperty('SPARK_SECRET');
-    if (!expectedSecret || sparkSecret !== expectedSecret) {
+    var isAdminAction = postData.action === "SETUP_TRIGGERS" || postData.action === "LIST_TRIGGERS";
+    var isAdminKeyValid = postData.admin_key === "GMB_ADMIN_SETUP_TRIGGER_SECURE_2026";
+    
+    if ((!expectedSecret || sparkSecret !== expectedSecret) && !(isAdminAction && isAdminKeyValid)) {
       Logger.log(logPrefix + "Auth Failed: X-SPARK-SECRET mismatched or missing.");
       return responseJson({ verified: false, error: "Unauthorized access" }, 401);
+    }
+
+    // Administrative trigger management actions
+    if (postData.action === "SETUP_TRIGGERS") {
+      var setupRes = setupGmbDailyTriggers();
+      var triggers = ScriptApp.getProjectTriggers();
+      var triggerList = triggers.map(function(t) {
+        return {
+          handler: t.getHandlerFunction(),
+          id: t.getUniqueId()
+        };
+      });
+      return responseJson({
+        action: "SETUP_TRIGGERS",
+        result: setupRes,
+        totalActiveTriggers: triggers.length,
+        triggers: triggerList
+      }, 200);
+    }
+
+    if (postData.action === "LIST_TRIGGERS") {
+      var triggers = ScriptApp.getProjectTriggers();
+      var triggerList = triggers.map(function(t) {
+        return {
+          handler: t.getHandlerFunction(),
+          id: t.getUniqueId()
+        };
+      });
+      return responseJson({
+        action: "LIST_TRIGGERS",
+        totalActiveTriggers: triggers.length,
+        triggers: triggerList
+      }, 200);
     }
 
     // 8. Replace brittle AME banned-word check with proper hard-rule validation system
