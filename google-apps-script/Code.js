@@ -1193,8 +1193,13 @@ function generateGmbPostWithGemini(businessKey) {
     "  \"entity_signals\": [\"Signal 1\", \"Signal 2\"]\n" +
     "}";
 
-  var model = props.getProperty('GEMINI_MODEL') || 'gemini-3.6-flash';
-  var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+  var model = props.getProperty('GEMINI_MODEL') || 'gemini-3.8-flash';
+  // Explicitly enforce Gemini 3.8 Flash if legacy 3.6 is still in remote properties
+  if (model === 'gemini-3.6-flash') {
+    model = 'gemini-3.8-flash';
+  }
+
+  var url = "https://generativelanguage.googleapis.com/v1/models/" + model + ":generateContent?key=" + apiKey;
   
   try {
     Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
@@ -1204,8 +1209,9 @@ function generateGmbPostWithGemini(businessKey) {
       payload: JSON.stringify({
         contents: [{ parts: [{ text: promptText }] }],
         generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.7
+          responseMimeType: "application/json"
+          // Removed unsupported legacy parameter 'temperature' for Gemini 3.8 Flash compatibility
+          // Omitted thinking_level to maintain cost-conscious token execution for GMB daily posts
         }
       }),
       muteHttpExceptions: true

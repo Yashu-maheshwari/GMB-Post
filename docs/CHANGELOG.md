@@ -1,17 +1,8 @@
 ﻿# CHANGELOG
 
 ## [Unreleased]
-### Added
-- `EntityBrain.js`: Centralized factual entity definitions, website mapping (`https://www.amebazaar.in/`), and GMB content pillar configurations.
-- `LOCAL_DISCOVERY_SIGNAL_ENGINE.md`: Architecture doc for discovery signals.
-- `PRODUCT_DISCOVERY_ARCHITECTURE.md`: Architecture doc for POS/WooCommerce.
-- Added structured JSON prompt requirements to `generateGmbPostWithGemini`.
-- Added CTA/Hook diversity tracking in `recordContentPattern`.
-
 ### Changed
-- `Code.js`: Restructured `BUSINESS_CONTENT_CONFIG` to hydrate dynamically from `EntityBrain.js`.
-- `Code.js`: Modified `resolveVerifiedImageForBusiness` to resolve pools dynamically from `pillar.imageFamily` and return strict `null` upon exhaustion instead of an unrelated fallback.
-- `test_runner.js`: Rewrote Gemini mock parsing to support new structured JSON. Added stricter assertions for fallback logic.
-
-### Fixed
-- Fixed endless image fallback looping by enforcing a strict `IMAGE_POOL_EXHAUSTED` state.
+- Migrated LLM API integration from `gemini-3.6-flash` (`v1beta`) to `gemini-3.8-flash` (`v1`).
+- Modified `Code.js` to automatically override legacy `gemini-3.6-flash` configurations.
+- Removed legacy `temperature` parameter from Gemini `generationConfig` to comply with new constraints.
+- Optimized token usage by continuing standard structured JSON generation without forcing higher-tier `thinking_level` processing for daily posts.
