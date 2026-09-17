@@ -1200,55 +1200,70 @@ function generateGmbPostWithGemini(businessKey) {
   }
 
   var url = "https://generativelanguage.googleapis.com/v1/models/" + model + ":generateContent?key=" + apiKey;
-  
-  try {
-    Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
-    var response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-          // Removed unsupported legacy parameter 'temperature' for Gemini 3.8 Flash compatibility
-          // Omitted thinking_level to maintain cost-conscious token execution for GMB daily posts
-        }
-      }),
-      muteHttpExceptions: true
-    });
 
-    var code = response.getResponseCode();
-    if (code === 200) {
-      var data = JSON.parse(response.getContentText());
-      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
-        var rawText = data.candidates[0].content.parts[0].text.trim();
-        if (rawText.indexOf("```json") === 0) rawText = rawText.replace(/^```jsons*/i, "").replace(/```$/, "").trim();
-        if (rawText.indexOf("```") === 0) rawText = rawText.replace(/^```s*/i, "").replace(/```$/, "").trim();
+  var maxAttempts = 3;
+  var attempt = 1;
+  var sleepTimes = [10000, 30000]; // 10s and 30s backoff
 
-        var parsed = JSON.parse(rawText);
-        if (parsed.topic_title && (parsed.summary || parsed.useful_answer)) {
-          var fullSummary = parsed.useful_answer ? (parsed.useful_answer.trim() + "\n\n" + (parsed.CTA ? parsed.CTA.trim() : "")) : (parsed.summary ? parsed.summary.trim() : "");
-          return {
-            success: true,
-            summary: fullSummary,
-            topic_title: parsed.topic_title || selectedPillar.name,
-            pillar_id: selectedPillar.id,
-            cta_url: (businessKey === "AME_BAZAAR" && typeof WEBSITE_ENTITY_CONNECTION !== 'undefined') ? (WEBSITE_ENTITY_CONNECTION[selectedPillar.id] || config.ctaUrl) : config.ctaUrl,
-            model_used: model,
-            parsed_json: parsed
-          };
-        }
+  while (attempt <= maxAttempts) {
+    try {
+      if (attempt === 1) {
+        Logger.log(logPrefix + "Calling Gemini model: " + model + " for pillar: " + selectedPillar.name);
       }
-    } else {
-      Logger.log(logPrefix + "Model " + model + " returned HTTP " + code + ": " + response.getContentText());
-      return { success: false, error: "Gemini API HTTP " + code + ": " + response.getContentText() };
-    }
-  } catch (err) {
-    Logger.log(logPrefix + "Error calling Gemini (" + model + "): " + err.message);
-    return { success: false, error: "Exception calling Gemini: " + err.message };
-  }
+      var response = UrlFetchApp.fetch(url, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        }),
+        muteHttpExceptions: true
+      });
 
-  return { success: false, error: "Gemini failed to generate valid content" };
+      var code = response.getResponseCode();
+      if (code === 200) {
+        var data = JSON.parse(response.getContentText());
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+          var rawText = data.candidates[0].content.parts[0].text.trim();
+          if (rawText.indexOf("```json") === 0) rawText = rawText.replace(/^```jsons*/i, "").replace(/```$/, "").trim();
+          if (rawText.indexOf("```") === 0) rawText = rawText.replace(/^```s*/i, "").replace(/```$/, "").trim();
+
+          var parsed = JSON.parse(rawText);
+          if (parsed.topic_title && (parsed.summary || parsed.useful_answer)) {
+            var fullSummary = parsed.useful_answer ? (parsed.useful_answer.trim() + "\n\n" + (parsed.CTA ? parsed.CTA.trim() : "")) : (parsed.summary ? parsed.summary.trim() : "");
+            return {
+              success: true,
+              summary: fullSummary,
+              topic_title: parsed.topic_title || selectedPillar.name,
+              pillar_id: selectedPillar.id,
+              cta_url: (businessKey === "AME_BAZAAR" && typeof WEBSITE_ENTITY_CONNECTION !== 'undefined') ? (WEBSITE_ENTITY_CONNECTION[selectedPillar.id] || config.ctaUrl) : config.ctaUrl,
+              model_used: model,
+              parsed_json: parsed
+            };
+          }
+        }
+        return { success: false, error: "Gemini failed to generate valid content structure" };
+      } else if ([429, 500, 502, 503, 504].indexOf(code) !== -1) {
+        if (attempt < maxAttempts) {
+          Logger.log(logPrefix + "[GEMINI_RETRY] attempt " + attempt + " failed with HTTP " + code + ". Retrying...");
+          Utilities.sleep(sleepTimes[attempt - 1]);
+          attempt++;
+          continue;
+        } else {
+          Logger.log(logPrefix + "[GEMINI_ABORT] Max attempts (" + maxAttempts + ") reached. Last HTTP code: " + code);
+          return { success: false, error: "Gemini API HTTP " + code + " after " + maxAttempts + " attempts: " + response.getContentText() };
+        }
+      } else {
+        Logger.log(logPrefix + "[GEMINI_ABORT] Fatal HTTP " + code + " (Non-transient). Aborting immediately.");
+        return { success: false, error: "Gemini API HTTP " + code + ": " + response.getContentText() };
+      }
+    } catch (err) {
+      Logger.log(logPrefix + "[GEMINI_ABORT] Exception calling Gemini (" + model + "): " + err.message);
+      return { success: false, error: "Exception calling Gemini: " + err.message };
+    }
+  }
 }
 
 function getRecentImages(businessKey) {

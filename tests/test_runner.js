@@ -1,4 +1,13 @@
 const fs = require('fs');
+
+global.mockGeminiState = {
+  transientFailures: 0,
+  failCode: 503,
+  fatalFailureCode: 0,
+  malformedJSON: false,
+  attemptsRecorded: 0
+};
+
 const path = require('path');
 const vm = require('vm');
 
@@ -31,63 +40,57 @@ const sandbox = {
     })
   },
   UrlFetchApp: {
-    fetch: (url, options) => {
+fetch: (url, options) => {
       console.log(`[Mock UrlFetchApp] Fetching: ${url}`);
+      
       // Gemini API mock
       if (url.includes('generativelanguage.googleapis.com')) {
-        let postBody = "This is a high quality local SEO post " + Date.now() + "_" + Math.random();
-        let postTopic = "Authentic Local Guide";
+        global.mockGeminiState.attemptsRecorded++;
         
-        if (options && options.payload) {
+        if (global.mockGeminiState.transientFailures > 0) {
+          global.mockGeminiState.transientFailures--;
+          return {
+            getResponseCode: () => global.mockGeminiState.failCode,
+            getContentText: () => JSON.stringify({error: "Mock transient failure"})
+          };
+        }
+        
+        if (global.mockGeminiState.fatalFailureCode > 0) {
+          return {
+            getResponseCode: () => global.mockGeminiState.fatalFailureCode,
+            getContentText: () => JSON.stringify({error: "Mock fatal failure"})
+          };
+        }
+        
+        let rawText = "{\n  \"topic_title\": \"Mock Topic\",\n  \"summary\": \"Mock Summary\",\n  \"useful_answer\": \"Mock Answer\",\n  \"CTA\": \"Mock CTA\"\n}";
+        if (global.mockGeminiState.malformedJSON) {
+          rawText = "{ malformed_json: true, missing_quotes }";
+        } else if (options && options.payload) {
           try {
             const payloadObj = JSON.parse(options.payload);
             const promptContent = payloadObj.contents[0].parts[0].text;
             if (promptContent.includes('AME Bazaar')) {
-              postBody = "Naye festive garments and ethnic dresses collection ab Mubarakpur Road Kirari store par available hai. Family shopping aur custom tailoring fitting ke liye visit karein.";
-              postTopic = "Family Festive Outfits";
+              rawText = "{\n  \"topic_title\": \"Family Festive Outfits\",\n  \"useful_answer\": \"Naye festive garments and ethnic dresses collection ab Mubarakpur Road Kirari store par available hai. Family shopping aur custom tailoring fitting ke liye visit karein.\"\n}";
             } else if (promptContent.includes('Maheshwari Counsel')) {
-              postBody = "This post explains the essential legal due diligence steps for property title verification and registration procedures in Delhi.";
-              postTopic = "Property Title Due Diligence";
+              rawText = "{\n  \"topic_title\": \"Property Title Due Diligence\",\n  \"useful_answer\": \"This post explains the essential legal due diligence steps for property title verification and registration procedures in Delhi.\"\n}";
             } else if (promptContent.includes('Advaith Educational')) {
-              postBody = "Effective study habits include active recall and structured 30-day revision timelines to build student confidence for exams in Delhi.";
-              postTopic = "Student Active Recall Habits";
-            } else if (promptContent.includes('SARASWATI INTERNATIONAL')) {
-              postBody = "Early reading habits and balanced digital screen time nurture creativity and curiosity in growing school students.";
-              postTopic = "Foundational Reading Habits";
+              rawText = "{\n  \"topic_title\": \"Student Active Recall Habits\",\n  \"useful_answer\": \"Effective study habits include active recall and structured 30-day revision timelines to build student confidence for exams in Delhi.\"\n}";
+            } else if (promptContent.includes('SIS') || promptContent.includes('SARASWATI')) {
+              rawText = "{\n  \"topic_title\": \"Foundational Reading Habits\",\n  \"useful_answer\": \"Saraswati International School focuses on early reading literacy.\"\n}";
             }
-          } catch (e) {}
+          } catch(e) {}
         }
         
-        if (url.includes('key=')) {
-          return {
-            getResponseCode: () => 200,
-            getHeaders: () => ({ 'Content-Type': 'application/json' }),
-            getContentText: () => JSON.stringify({
-              candidates: [
-                {
-                  content: {
-                    parts: [
-                      {
-                        text: JSON.stringify({
-                          topic_title: postTopic,
-                          useful_answer: postBody,
-                          CTA: "Visit us today!",
-                          search_intent: "Find clothes",
-                          local_intent: "Delhi",
-                          audience: "Families",
-                          question_answered: "Where to buy?",
-                          factual_claims: [],
-                          visual_intent: "Shop front",
-                          entity_signals: []
-                        })
-                      }
-                    ]
-                  }
-                }
-              ]
-            })
-          };
-        }
+        return {
+          getResponseCode: () => 200,
+          getContentText: () => JSON.stringify({
+            candidates: [{
+              content: {
+                parts: [{ text: "```json\n" + rawText + "\n```" }]
+              }
+            }]
+          })
+        };
       }
       if (url.includes('cloudinary.com') && !url.includes('sample_cloudinary.jpg') && !url.includes('sample.jpg')) {
         return {
@@ -141,6 +144,7 @@ const sandbox = {
     })
   },
   Utilities: {
+    sleep: (ms) => console.log("[Mock Utilities.sleep] Sleeping for " + ms),
     DigestAlgorithm: { MD5: 'MD5' },
     Charset: { UTF_8: 'UTF_8' },
     computeDigest: (algo, val) => {
@@ -353,6 +357,60 @@ assert("Topic mapping returns null when pool is exhausted", resolvedImgFallback 
 
 const missingImg = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "unknown_pillar");
 assert("Unknown pillar returns null", missingImg === null);
+
+
+// --- GEMINI TRANSIENT FAILURE TESTS ---
+console.log("--- Running Gemini Transient Failure Tests ---");
+sandbox.PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', 'mock_gemini_api_key_xyz');
+
+// Test: 503 -> retry -> success
+global.mockGeminiState.transientFailures = 1;
+global.mockGeminiState.failCode = 503;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes1 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("503 -> retry -> success", retryRes1.success === true && global.mockGeminiState.attemptsRecorded === 2);
+
+// Test: 503 -> 503 -> success
+global.mockGeminiState.transientFailures = 2;
+global.mockGeminiState.failCode = 503;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes2 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("503 -> 503 -> success", retryRes2.success === true && global.mockGeminiState.attemptsRecorded === 3);
+
+// Test: 503 -> 503 -> 503 -> safe abort
+global.mockGeminiState.transientFailures = 3;
+global.mockGeminiState.failCode = 503;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes3 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("503 -> 503 -> 503 -> safe abort", retryRes3.success === false && retryRes3.error.includes("503") && global.mockGeminiState.attemptsRecorded === 3);
+
+// Test: 429 -> retry -> success
+global.mockGeminiState.transientFailures = 1;
+global.mockGeminiState.failCode = 429;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes4 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("429 -> retry -> success", retryRes4.success === true && global.mockGeminiState.attemptsRecorded === 2);
+
+// Test: 400 -> immediate abort
+global.mockGeminiState.transientFailures = 0;
+global.mockGeminiState.fatalFailureCode = 400;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes5 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("400 -> immediate abort", retryRes5.success === false && retryRes5.error.includes("400") && global.mockGeminiState.attemptsRecorded === 1);
+
+// Test: 404 -> immediate abort
+global.mockGeminiState.fatalFailureCode = 404;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes6 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("404 -> immediate abort", retryRes6.success === false && retryRes6.error.includes("404") && global.mockGeminiState.attemptsRecorded === 1);
+
+// Test: malformed JSON -> immediate abort
+global.mockGeminiState.fatalFailureCode = 0; // reset
+global.mockGeminiState.malformedJSON = true;
+global.mockGeminiState.attemptsRecorded = 0;
+let retryRes7 = sandbox.generateGmbPostWithGemini("AME_BAZAAR");
+assert("malformed JSON -> immediate abort", retryRes7.success === false && global.mockGeminiState.attemptsRecorded === 1);
+global.mockGeminiState.malformedJSON = false; // reset
 
 console.log(`\n=== NODE.JS UNIT TESTS: ${testPassed} PASSED, ${testFailed} FAILED ===`);
 if (testFailed > 0 || internalResult.failed > 0) {

@@ -8,10 +8,9 @@
 - **EntityBrain Architecture**: OPERATIONAL (AME Bazaar ONLY)
 
 ## Recent Accomplishments
-- Migrated Gemini API from `v1beta` (`gemini-3.6-flash`) to Google's official `v1` endpoint for `gemini-3.8-flash`.
-- Removed unsupported legacy generation parameters (`temperature`) to optimize for Gemini 3.8 Flash constraints.
-- Retained cost-conscious generation configuration (omitted higher-reasoning `thinkingConfig` per daily execution optimization).
-- Hardened model-selection fallback so the script automatically forces `gemini-3.8-flash` if the remote property is missing or set to the legacy 3.6 model.
+- Hardened Gemini transient failure handling with automatic exponential backoff (10s, 30s) and max 3 attempts for HTTP 429, 500, 502, 503, and 504.
+- Implemented immediate aborting for unrecoverable errors (400, 404, invalid JSON), preventing broken posts or side effects.
+- Verified live POST execution safeguards after an actual 503 from `gemini-3.8-flash` resulted in a perfectly clean abort with no corrupted history.
 
 ## Outstanding & NOT_CONFIGURED
 - **MAHESHWARI_COUNSEL**: Lacks canonical EntityBrain and updated Custom Pillars.
@@ -22,4 +21,3 @@
 
 ## Current Blockers
 - Awaiting POS/WooCommerce endpoint credentials for Product Discovery features.
-- Manual Action Required: Update Script Property `GEMINI_MODEL` to `gemini-3.8-flash` in the remote Apps Script dashboard.
