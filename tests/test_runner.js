@@ -70,7 +70,15 @@ const sandbox = {
                       {
                         text: JSON.stringify({
                           topic_title: postTopic,
-                          summary: postBody
+                          useful_answer: postBody,
+                          CTA: "Visit us today!",
+                          search_intent: "Find clothes",
+                          local_intent: "Delhi",
+                          audience: "Families",
+                          question_answered: "Where to buy?",
+                          factual_claims: [],
+                          visual_intent: "Shop front",
+                          entity_signals: []
                         })
                       }
                     ]
@@ -341,7 +349,7 @@ assert("Topic mapping avoids recently used image", String(resolvedImg1) === "htt
 sandbox.recordImageHistory("AME_BAZAAR", resolvedImg1);
 // Now both are in history, it should fallback to the first one
 const resolvedImgFallback = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "ethnic_festive");
-assert("Topic mapping falls back to oldest when pool is exhausted", String(resolvedImgFallback) === "https://res.cloudinary.com/demo/image/upload/sample_cloudinary.jpg" && resolvedImgFallback.originalUrl === "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80");
+assert("Topic mapping returns null when pool is exhausted", resolvedImgFallback === null);
 
 const missingImg = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "unknown_pillar");
 assert("Unknown pillar returns null", missingImg === null);
