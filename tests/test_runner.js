@@ -290,16 +290,16 @@ assert("generateGmbPostWithGemini aborts gracefully when API key is missing", no
 mockProperties['GEMINI_API_KEY'] = savedKey;
 
 // Test 5: Image pool resolution
-const imageAme = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", 0);
-assert("resolveVerifiedImageForBusiness resolves accessible image URL", typeof imageAme === 'string' && imageAme.startsWith("https://"));
+const imageAme = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "ethnic_festive");
+assert("resolveVerifiedImageForBusiness resolves accessible image URL", (typeof imageAme === 'string' || typeof imageAme === 'object') && String(imageAme).startsWith("https://"));
 
 // Test 6: Missing Image handling aborts scheduled post run
-const origConfig = sandbox.BUSINESS_CONTENT_CONFIG['SIS'].images;
-sandbox.BUSINESS_CONTENT_CONFIG['SIS'].images = [];
+const origConfig = sandbox.BUSINESS_CONTENT_CONFIG['SIS'].imagePool;
+sandbox.BUSINESS_CONTENT_CONFIG['SIS'].imagePool = {};
 mockProperties['GMB_ROTATION_INDEX'] = '3'; // Point directly to SIS
 const missingImageRun = sandbox.scheduledGmbPostRunner();
 assert("scheduledGmbPostRunner aborts with IMAGE_MISSING when image pool is empty", missingImageRun.success === false && missingImageRun.error === "IMAGE_MISSING");
-sandbox.BUSINESS_CONTENT_CONFIG['SIS'].images = origConfig; // Restore
+sandbox.BUSINESS_CONTENT_CONFIG['SIS'].imagePool = origConfig; // Restore
 
 // Test 7: Dedicated 4-Business Daily Post Functions
 const ameRun = sandbox.scheduledGmbPostAME();
@@ -325,6 +325,26 @@ assert("Re-running setupGmbDailyTriggers prevents duplicate accumulation", trigg
 
 const triggersRemoved = sandbox.removeGmbDailyTriggers();
 assert("removeGmbDailyTriggers cleans up all 4 existing triggers", triggersRemoved === 4 && sandbox.ScriptApp.getProjectTriggers().length === 0);
+
+
+// Test 9: Image Topic Mapping and History
+mockProperties['GMB_IMAGES_AME_BAZAAR'] = JSON.stringify([]);
+sandbox.recordImageHistory("AME_BAZAAR", "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80");
+const hist = sandbox.getRecentImages("AME_BAZAAR");
+console.log("HISTORY:", hist);
+assert("Image history records successfully", hist.length === 1);
+
+const resolvedImg1 = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "ethnic_festive");
+// Should pick the second one since the first is in history
+assert("Topic mapping avoids recently used image", String(resolvedImg1) === "https://res.cloudinary.com/demo/image/upload/sample_cloudinary.jpg" && resolvedImg1.originalUrl === "https://images.unsplash.com/photo-1583391733958-d15014251d20?w=800&auto=format&fit=crop&q=80");
+
+sandbox.recordImageHistory("AME_BAZAAR", resolvedImg1);
+// Now both are in history, it should fallback to the first one
+const resolvedImgFallback = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "ethnic_festive");
+assert("Topic mapping falls back to oldest when pool is exhausted", String(resolvedImgFallback) === "https://res.cloudinary.com/demo/image/upload/sample_cloudinary.jpg" && resolvedImgFallback.originalUrl === "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80");
+
+const missingImg = sandbox.resolveVerifiedImageForBusiness("AME_BAZAAR", "unknown_pillar");
+assert("Unknown pillar returns null", missingImg === null);
 
 console.log(`\n=== NODE.JS UNIT TESTS: ${testPassed} PASSED, ${testFailed} FAILED ===`);
 if (testFailed > 0 || internalResult.failed > 0) {

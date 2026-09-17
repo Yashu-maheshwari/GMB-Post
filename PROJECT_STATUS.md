@@ -31,7 +31,8 @@ Current implementation, verified live publication, test status, scheduler setup,
 - [x] **Clean Trigger Setup & Removal**:
   - `setupGmbDailyTriggers()`: Replaces existing triggers with exactly 4 daily triggers.
   - `removeGmbDailyTriggers()`: Safely deletes all project triggers.
-- [x] **Topic Memory & Anti-Repetition**: Tracks last 15 topics in `GMB_TOPICS_<BUSINESS_KEY>` with 5 content pillars per business.
+- [x] **Topic Memory & Anti-Repetition: Tracks last 15 topics in `GMB_TOPICS_<BUSINESS_KEY>` with 5 content pillars per business.
+- [x] **Image Intelligence & Anti-Repetition**: Topics automatically map to business-specific categorized `imagePool`s using `pillar_id`. Tracks recent 10 images in `GMB_IMAGES_<BUSINESS_KEY>` to prevent sequential repetition of visually similar assets.
 - [x] **Permanent Image Pipeline**: Curated HTTPS image pools + Cloudinary fallback + pre-publish accessibility check (`HTTP 200` + MIME `image/*`) + `IMAGE_MISSING` abort guard.
 - [x] **Business Policy & Safety Gates**: Custom validation blocking unverified promotional pricing (AME), solicitation/win guarantees (Counsel), unverified academic rankings (Advaith), and fabricated board affiliations (SIS).
 - [x] **Duplicate Protection**: Combined `request_id` tracking + MD5 content hash (`computeHash`).
@@ -40,7 +41,7 @@ Current implementation, verified live publication, test status, scheduler setup,
 ---
 
 ## 3. Test Status
-* **Local Test Suite (`node tests/test_runner.js`)**: **20/20 PASS**
+* **Local Test Suite (`node tests/test_runner.js`)**: **24/24 PASS**
   - `8/8` internal GAS validation & format assertions.
   - `12/12` Node.js test assertions (validating all 4 dedicated functions, 4-trigger setup schedule mapping, re-run duplicate prevention, and trigger cleanup).
 

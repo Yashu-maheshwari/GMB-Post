@@ -841,7 +841,7 @@ function runOneControlledLiveAmePost() {
 
     // 3. Resolve & validate image
     var recentTopics = getRecentTopics("AME_BAZAAR");
-    var imageUrl = resolveVerifiedImageForBusiness("AME_BAZAAR", recentTopics.length);
+    var imageUrl = resolveVerifiedImageForBusiness("AME_BAZAAR", genResult.pillar_id);
     liveReport.imageResolution = { url: imageUrl, valid: !!imageUrl };
     if (!imageUrl) {
       throw new Error("IMAGE_MISSING: No accessible verified image available for AME_BAZAAR");
@@ -883,6 +883,8 @@ function runOneControlledLiveAmePost() {
     // 8. Record processed request & topic memory
     recordProcessedRequest(requestId, contentHash);
     recordTopicHistory("AME_BAZAAR", topicTitle);
+    recordImageHistory("AME_BAZAAR", imageUrl);
+    recordImageHistory("AME_BAZAAR", imageUrl);
 
     return liveReport;
 
@@ -963,12 +965,28 @@ var BUSINESS_CONTENT_CONFIG = {
       { id: "kids_mens_wear", name: "Men's and Kids' Practical Everyday Fashion", angle: "Durable and trendy everyday garments for kids and versatile essentials for men." },
       { id: "local_shopping", name: "Kirari Family Shopping Experience", angle: "Convenient local family clothing shopping on Mubarakpur Road, Kirari." }
     ],
-    images: [
-      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80"
-    ],
+    imagePool: {
+      "ethnic_festive": [
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1583391733958-d15014251d20?w=800&auto=format&fit=crop&q=80"
+      ],
+      "seasonal_wardrobe": [
+        "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1434389678059-3a3233852233?w=800&auto=format&fit=crop&q=80"
+      ],
+      "custom_tailoring": [
+        "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&auto=format&fit=crop&q=80"
+      ],
+      "kids_mens_wear": [
+        "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1516257984-b1b4d707412e?w=800&auto=format&fit=crop&q=80"
+      ],
+      "local_shopping": [
+        "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=800&auto=format&fit=crop&q=80"
+      ]
+    },
     guidelines: "Write in warm, helpful Hinglish or clean conversational English. Focus on fabric quality, family styling, and local store experience. FORBIDDEN: Do not use words 'cheapest', 'lowest price', 'guaranteed cheapest'. Never mention persona 'Sam'."
   },
   "MAHESHWARI_COUNSEL": {
@@ -982,11 +1000,13 @@ var BUSINESS_CONTENT_CONFIG = {
       { id: "consumer_rights", name: "Consumer Rights & Complaint Redressal", angle: "Understanding consumer protection rights, defective service remedies, and documentation for consumer forums." },
       { id: "commercial_agreements", name: "Contractual Drafting & Agreement Clarity", angle: "Key clauses to review in commercial agreements, tenancy deeds, and service contracts for legal certainty." }
     ],
-    images: [
-      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1505664194779-8beaceb93744?w=800&auto=format&fit=crop&q=80"
-    ],
+    imagePool: {
+      "property_registry": ["https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?w=800&auto=format&fit=crop&q=80"],
+      "civil_remedies": ["https://images.unsplash.com/photo-1450133064473-71024230f91b?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=800&auto=format&fit=crop&q=80"],
+      "succession_wills": ["https://images.unsplash.com/photo-1505664194779-8beaceb93744?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=800&auto=format&fit=crop&q=80"],
+      "consumer_rights": ["https://images.unsplash.com/photo-1589391886645-d51941baf7fb?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1593115057322-e94b77572f20?w=800&auto=format&fit=crop&q=80"],
+      "commercial_agreements": ["https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1556157382-97eda2d62296?w=800&auto=format&fit=crop&q=80"]
+    },
     guidelines: "Write in objective, informative, professional English. Offer helpful legal awareness and procedural guidance. FORBIDDEN: Strictly no solicitation, no 'best lawyer', no 'win your case' or guaranteed legal outcome claims."
   },
   "ADVAITH_EDUCATIONAL_CENTER": {
@@ -1000,11 +1020,13 @@ var BUSINESS_CONTENT_CONFIG = {
       { id: "parent_support", name: "Parental Guidance for Student Learning", angle: "How parents can create an encouraging home study environment and support consistent academic growth." },
       { id: "analytical_thinking", name: "Critical Thinking & Self-Directed Learning", angle: "Fostering curiosity, reading habits, and analytical problem-solving skills in growing students." }
     ],
-    images: [
-      "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=80"
-    ],
+    imagePool: {
+      "study_habits": ["https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1456406644174-8ddd4cd52a06?w=800&auto=format&fit=crop&q=80"],
+      "conceptual_learning": ["https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1503694978374-8a2fb5206f0d?w=800&auto=format&fit=crop&q=80"],
+      "exam_readiness": ["https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=800&auto=format&fit=crop&q=80"],
+      "parent_support": ["https://images.unsplash.com/photo-1484807352052-23338990c6c6?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80"],
+      "analytical_thinking": ["https://images.unsplash.com/photo-1513258496099-48168024aec0?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=800&auto=format&fit=crop&q=80"]
+    },
     guidelines: "Write in encouraging, student-centric, educational English. Focus on study methodology, habit-building, and academic clarity. FORBIDDEN: Do not claim 'Rank 1', '100% selection', 'percentile', or unverified affiliation claims."
   },
   "SIS": {
@@ -1018,11 +1040,13 @@ var BUSINESS_CONTENT_CONFIG = {
       { id: "experiential_science", name: "Experiential Learning & Hands-On Discovery", angle: "Encouraging curiosity through practical science experiments, nature exploration, and creative projects." },
       { id: "family_collaboration", name: "Parent-School Collaboration for Child Growth", angle: "Effective communication between educators and families to nurture student curiosity and well-being." }
     ],
-    images: [
-      "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80"
-    ],
+    imagePool: {
+      "foundational_literacy": ["https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&auto=format&fit=crop&q=80"],
+      "holistic_growth": ["https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&fit=crop&q=80"],
+      "digital_balance": ["https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=800&auto=format&fit=crop&q=80"],
+      "experiential_science": ["https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1564473636184-7a0928e3da06?w=800&auto=format&fit=crop&q=80"],
+      "family_collaboration": ["https://images.unsplash.com/photo-1529390079861-591de354faf5?w=800&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&auto=format&fit=crop&q=80"]
+    },
     guidelines: "Write in inspiring, family-oriented, pedagogical English. Focus on child development, learning joy, and school values. FORBIDDEN: Do not invent board affiliations (like CBSE), 'No.1 school', 'best school', or guaranteed exam results."
   }
 };
@@ -1156,31 +1180,88 @@ function generateGmbPostWithGemini(businessKey) {
 }
 
 /**
- * Resolves a verified accessible image for the given business
+ * Get recent image history from Script Properties
  */
-function resolveVerifiedImageForBusiness(businessKey, pillarIndex) {
+function getRecentImages(businessKey) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('GMB_IMAGES_' + businessKey);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Store updated image history in Script Properties
+ */
+function recordImageHistory(businessKey, imageUrl) {
+  var props = PropertiesService.getScriptProperties();
+  var history = getRecentImages(businessKey);
+  if (imageUrl) {
+    var urlToRecord = imageUrl.originalUrl ? imageUrl.originalUrl : String(imageUrl);
+    history.unshift(urlToRecord);
+    if (history.length > 10) {
+      history = history.slice(0, 10);
+    }
+    props.setProperty('GMB_IMAGES_' + businessKey, JSON.stringify(history));
+  }
+}
+
+/**
+ * Resolves a verified accessible topic-aware image for the given business
+ */
+function resolveVerifiedImageForBusiness(businessKey, pillarId) {
   var config = BUSINESS_CONTENT_CONFIG[businessKey];
-  if (!config || !config.images || config.images.length === 0) {
+  if (!config || !config.imagePool) {
     Logger.log("[IMAGE_MISSING] No image pool defined for " + businessKey);
     return null;
   }
 
-  var idx = (pillarIndex || 0) % config.images.length;
-  var candidateUrl = config.images[idx];
-
-  // Try Cloudinary upload if configured
-  var cloudinaryUrl = uploadToCloudinaryIfAvailable(candidateUrl);
-  var finalUrl = cloudinaryUrl || candidateUrl;
-
-  // Validate accessibility
-  var accessCheck = testImageAccessibility(finalUrl);
-  if (accessCheck.valid) {
-    return finalUrl;
-  } else {
-    Logger.log("[IMAGE_MISSING] Image accessibility failed for " + finalUrl + ": " + accessCheck.error);
-    return null;
+  var pool = config.imagePool[pillarId] || [];
+  if (pool.length === 0) {
+     Logger.log("[IMAGE_MISSING] No images for pillar " + pillarId);
+     return null;
   }
+
+  var recentImages = getRecentImages(businessKey);
+  
+  for (var i = 0; i < pool.length; i++) {
+    var candidateUrl = pool[i];
+    if (recentImages.indexOf(candidateUrl) === -1) {
+      var cloudinaryUrl = uploadToCloudinaryIfAvailable(candidateUrl);
+      var finalUrl = cloudinaryUrl || candidateUrl;
+
+      var accessCheck = testImageAccessibility(finalUrl);
+      if (accessCheck.valid) {
+        var finalStr = new String(finalUrl);
+        finalStr.originalUrl = candidateUrl;
+        return finalStr;
+      } else {
+        Logger.log("[IMAGE_WARN] Image accessibility failed for " + finalUrl + ": " + accessCheck.error);
+      }
+    }
+  }
+  
+  var fallbackUrl = pool[0];
+  for (var j = 0; j < pool.length; j++) {
+      var cUrl = pool[j];
+      var cloudinaryUrlFallback = uploadToCloudinaryIfAvailable(cUrl);
+      var fUrl = cloudinaryUrlFallback || cUrl;
+      var aCheck = testImageAccessibility(fUrl);
+      if (aCheck.valid) {
+         Logger.log("[IMAGE_WARN] Reusing image as pool is exhausted for " + pillarId);
+         var fStr = new String(fUrl);
+         fStr.originalUrl = cUrl;
+         return fStr;
+      }
+  }
+
+  Logger.log("[IMAGE_MISSING] All images failed accessibility for " + pillarId);
+  return null;
 }
+
 
 /**
  * Core engine for executing a scheduled daily post for a given business
@@ -1217,8 +1298,7 @@ function executeScheduledPostForBusiness(businessKey) {
 
   // 3. Resolve & Validate Image
   var recentTopics = getRecentTopics(businessKey);
-  var imagePillarIndex = recentTopics.length;
-  var imageUrl = resolveVerifiedImageForBusiness(businessKey, imagePillarIndex);
+  var imageUrl = resolveVerifiedImageForBusiness(businessKey, genResult.pillar_id);
   if (!imageUrl) {
     Logger.log("[ABORT] [IMAGE_MISSING] No accessible image available for " + businessKey + ". Aborting daily run.");
     return { success: false, error: "IMAGE_MISSING" };
@@ -1258,6 +1338,8 @@ function executeScheduledPostForBusiness(businessKey) {
   // 8. Lock duplicate records & update topic memory
   recordProcessedRequest(requestId, contentHash);
   recordTopicHistory(businessKey, topicTitle);
+  recordImageHistory(businessKey, imageUrl);
+  recordImageHistory(businessKey, imageUrl);
 
   Logger.log("=== SCHEDULED DAILY GMB POST FOR " + businessKey + " FINISHED SUCCESSFULLY ===");
   return {
