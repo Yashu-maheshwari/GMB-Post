@@ -566,10 +566,10 @@ function runLocalSuite() {
 
   function assert(name, condition) {
     if (condition) {
-      Logger.log("✓ PASS: " + name);
+      Logger.log("âœ“ PASS: " + name);
       passed++;
     } else {
-      Logger.log("✗ FAIL: " + name);
+      Logger.log("âœ— FAIL: " + name);
       failed++;
     }
   }
@@ -643,10 +643,10 @@ function runGbpDiscovery() {
     imagePool: {
       "ethnic_festive": [
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1583391733958-d15014251d20?w=800&auto=format&fit=crop&q=80"
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80&v=2"
       ],
       "wedding": [
-        "https://images.unsplash.com/photo-1583391733958-d15014251d20?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80&v=2",
         "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&auto=format&fit=crop&q=80"
       ],
       "womens_fashion": [
@@ -999,7 +999,7 @@ var BUSINESS_CONTENT_CONFIG = {
     imagePool: {
       "ethnic_festive": [
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1583391733958-d15014251d20?w=800&auto=format&fit=crop&q=80"
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80&v=2"
       ],
       "seasonal_wardrobe": [
         "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&auto=format&fit=crop&q=80",
