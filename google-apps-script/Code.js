@@ -1193,13 +1193,13 @@ function generateGmbPostWithGemini(businessKey) {
     "  \"entity_signals\": [\"Signal 1\", \"Signal 2\"]\n" +
     "}";
 
-  var model = props.getProperty('GEMINI_MODEL') || 'gemini-3.8-flash';
-  // Explicitly enforce Gemini 3.8 Flash if legacy 3.6 is still in remote properties
-  if (model === 'gemini-3.6-flash') {
-    model = 'gemini-3.8-flash';
+  var model = props.getProperty('GEMINI_MODEL') || 'gemini-3.1-flash-lite';
+  // Explicitly enforce Gemini 3.1 Flash-Lite if legacy 3.8 or 3.6 is still in remote properties
+  if (model === 'gemini-3.6-flash' || model === 'gemini-3.8-flash') {
+    model = 'gemini-3.1-flash-lite';
   }
 
-  var url = "https://generativelanguage.googleapis.com/v1/models/" + model + ":generateContent?key=" + apiKey;
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
 
   var maxAttempts = 3;
   var attempt = 1;
